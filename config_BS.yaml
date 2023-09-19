@@ -1,0 +1,101 @@
+sat_preproc:
+  sat_names: ['CFOSAT','Cryosat-2','AltiKa','HY-2B','Jason-3','Sentinel-3A', 'Sentinel-3B']
+  years: [2019,2021]
+  sat_specifics:
+    lat: 'latitude'
+    lon: 'longitude'
+    time: 'time'
+    hs: 'VAVH' #'VAVH_UNFILTERED'
+    type: 'L3'
+  paths:
+    sat: '/data/inputs/metocean/historical/obs/satellite/wave/CLS/{satName}/{satType}/sec/{year}/{month}/'
+    output: '/work/opa/sc33616/ww3/tools/blackSea/unfilt'
+  filenames:
+    sat:
+      template: 'global_vavh_l3_rt_*_*.nc'
+      cicle: '*'
+      passage: '*'
+    output: '{sat_name}_{year}'
+  processing:
+    boundingBox:
+      xmin: 27.3
+      xmax: 41.82
+      ymin: 40.6
+      ymax: 47.43
+    filters:
+      quality_check:
+         variable_name: False  #qual_alt_1hz_swh_ku  ## Set to False to skip, else set the variable name
+         value: 0                                         # set the idenfifier for good data
+      land_masking:
+        variable_name: False #'surface_type' ## Set to False to skip, else set the variable name
+        value: 0                                          # set the idenfifier for the ocean
+        shapefile: "/work/opa/sc33616/ww3/tools/scatter_waves/data/shp/blackSea_sea_buffer15km_noMarAzo.shp" #'/Users/scausio/Documents/data/shapefile/blackSea_poly/bs.shp' #shapefile of your valid model domain.  if shapefile: False the tool masks land according to the dataset flag, otherwise it use the ocean shapefile
+      threshold:
+        min: 0.25 # discard Hs< min
+        max: 6    # discard Hs> max
+      zscore:
+        sigma: 4 
+
+model_preproc:
+  years: [2019,2021] ## THIS IS JUST A NAME! NEEDS to be "first year_last year" if analysis is on more years
+  out_dir: '/work/opa/sc33616/ww3/tools/BS-wave'
+  datasets:
+   sat:
+     path: '/work/opa/sc33616/ww3/tools/blackSea/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore{sigma}.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/CFOSAT_{year}_threshold_landMasked_qcheck_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore3.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'
+     lat: 'latitude'
+     lon: 'longitude'
+     time: 'time'
+   models: # for validation of more exps please repeat the code block 'yourExp1' naming it as you prefer
+     #wam:
+     #  path: '/data/inputs/metocean/historical/model/ocean/HZG/WAM_CMEMS/simulation/1h/{year}/*/*h-HZG--WAVES-BSeas3-BS-*_sm-fv07.00.nc'
+     #  lat: 'lat'
+     #  lon: 'lon'
+     #  hs: 'VHM0'
+     #  time: 'time' 
+     #BS_ERA5_test_unco_rea:
+     #  path: '/work/opa/now_rsc/runs/{experiment}/20160101/netcdf/ww3.{year}*.nc' #'/work/opa/ww3_cst/runs/{experiment}/20191231/netcdf/ww3.*.nc'
+     #  lat: 'latitude'
+     #  lon: 'longitude'
+     #  hs: 'hs'
+     #  time: 'time'
+     BS_ERA5_test_uv_rea:
+       path: '/work/opa/now_rsc/runs/{experiment}/20160101/netcdf/ww3.{year}*.nc' #'/work/opa/ww3_cst/runs/{experiment}/20191231/netcdf/ww3.*.nc'
+       lat: 'latitude'
+       lon: 'longitude'
+       hs: 'hs'
+       time: 'time'
+  filters:
+    max_distance_in_space: 0.04                         # (in degree) it discards data if sat is farther this value
+    max_distance_in_time: 1                             # (in hours) it discards data if sat is farther this value
+    threshold:
+      min: 0.25
+      max: 6
+plot:
+  years: [2019,2021] #'2019_2020' # THIS IS JUST A NAME! NEEDS to be "first year_last year"  if analysis is on several year
+  satName: 'Cryosat-2,AltiKa,HY-2B,Jason-3,Sentinel-3A,Sentinel-3B' # this is a string in the plot title
+  sat:
+   series: '/work/opa/sc33616/ww3/tools/blackSea/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore{sigma}.nc' #'/work/opa/sc33616/ww3/tools/satTest_manu/CFOSAT_{year}_threshold_landMasked_qcheck_zscore3.nc' #'/work/opa/sc33616/ww3/tools/satTest_manu/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore3.nc'
+   hs: 'hs'
+  experiments: # experiments you want to plot
+    #wam:
+    #  series: '/work/opa/sc33616/ww3/tools/BS-NRT/wam_{year}_series.npy'
+    BS_ERA5_test_unco_rea:
+      series: '/work/opa/sc33616/ww3/tools/BS-wave/{experiment}_{year}_series.npy' # '/work/opa/sc33616/ww3/tools/satTest_manu/yourExp1_{year}_series.npy'
+    BS_ERA5_test_uv_rea:
+      series: '/work/opa/sc33616/ww3/tools/BS-wave/{experiment}_{year}_series.npy'
+    BS_ERA5_test_uvT_rea:
+      series: '/work/opa/sc33616/ww3/tools/BS-wave/{experiment}_{year}_series.npy'
+    BS_ERA5_test_uvTl_rea:
+      series: '/work/opa/sc33616/ww3/tools/BS-wave/{experiment}_{year}_series.npy'
+    #BS_ERA5_test_uvl_rea:
+    #  series: '/work/opa/sc33616/ww3/tools/BS-wave/{experiment}_{year}_series.npy'
+  expName: 'bs_{exp}_{year}'
+  out_dir: '/work/opa/sc33616/ww3/tools/blackSea/plots_filt'
+  additional_filters:
+    ntimes: 2 # mask data if satellite hs is > of ntimes * model hs
+taylor:
+  years: [2016,2018]
+  out_dir: '/work/opa/sc33616/ww3/tools/bs/plots'
+
+
+
