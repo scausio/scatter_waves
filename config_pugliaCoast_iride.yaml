@@ -9,7 +9,7 @@ sat_preproc:
     type: 'L3'
   paths:
     sat: '/work/opa/md04916/iride/WAVE_GLO_PHY_SWH_L3_NRT_014_001/{satName}/{year}/{month}/'
-    output: '/work/opa/sc33616/ww3/tools/iride_adri'
+    output: '/work/opa/sc33616/ww3/tools/iride_puglia'
   filenames:
     sat:
       template: 'global_vavh_l3_rt_*_*.nc'
@@ -29,7 +29,7 @@ sat_preproc:
       land_masking:
         variable_name: False #'surface_type' ## Set to False to skip, else set the variable name
         value: 0                                          # set the idenfifier for the ocean
-        shapefile: "/work/opa/sc33616/ww3/tools/scatter_waves/data/shp/adri_simpli_clean.shp" #'/Users/scausio/Documents/data/shapefile/blackSea_poly/bs.shp' #shapefile of your valid model domain.  if shapefile: False the tool masks land according to the dataset flag, otherwise it use the ocean shapefile
+        shapefile: "/work/opa/sc33616/ww3/tools/scatter_waves/data/shp/puglia_coast.shp" #'/Users/scausio/Documents/data/shapefile/blackSea_poly/bs.shp' #shapefile of your valid model domain.  if shapefile: False the tool masks land according to the dataset flag, otherwise it use the ocean shapefile
       threshold:
         min: 0.25 # discard Hs< min
         max: 6    # discard Hs> max
@@ -37,10 +37,10 @@ sat_preproc:
         sigma: 3  
 
 model_preproc:
-  out_dir: '/work/opa/sc33616/ww3/tools/iride_adri'
+  out_dir: '/work/opa/sc33616/ww3/tools/iride_puglia'
   datasets:
    sat:
-     path: '/work/opa/sc33616/ww3/tools/iride_adri/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore{sigma}.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/CFOSAT_{year}_threshold_landMasked_qcheck_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore3.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'
+     path: '/work/opa/sc33616/ww3/tools/iride_puglia/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore{sigma}.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/CFOSAT_{year}_threshold_landMasked_qcheck_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore3.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'
      lat: 'latitude'
      lon: 'longitude'
      time: 'time'
@@ -73,9 +73,9 @@ plot:
     #adriatic:
     #  series: '/work/opa/sc33616/ww3/tools/unst_Adr_2023/{experiment}_{year}_series.npy' # '/work/opa/sc33616/ww3/tools/satTest_manu/yourExp1_{year}_series.npy'
     adriatic:
-      series: '/work/opa/sc33616/ww3/tools/iride_adri/{experiment}_{year}_sat_series.nc'
+      series: '/work/opa/sc33616/ww3/tools/iride_puglia/{experiment}_{year}_sat_series.nc'
   expName: 'adr_{exp}_{year}'
-  out_dir: '/work/opa/sc33616/ww3/tools/iride_adri/plots'
+  out_dir: '/work/opa/sc33616/ww3/tools/iride_puglia/plots'
   additional_filters:
     ntimes: 2 # mask data if satellite hs is > of ntimes * model hs
 

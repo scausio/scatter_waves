@@ -111,23 +111,22 @@ def main():
     outdir=conf.out_dir
     checkOutdir(conf.out_dir)
 
-    years=f"{conf_pre.years[0]}_{conf_pre.years[-1]}" if len(conf_pre.years)>1  else f"{conf_pre.years[0]}"
+    years=f"{conf_pre.years[0]}_{conf_pre.years[-1]}" if len(conf_pre.years)>1  else conf_pre.years[0]
 
+    sat = (conf.sat.series).format(year=years,sigma=conf_pre.processing.filters.zscore.sigma)
+    sat= xr.open_dataset(sat)
+    print (sat)
+    sat_hs=sat[conf.sat.hs]
 
+    ds={}
+    ds['sat']=sat_hs.values
+    notValid=np.isnan(ds['sat'])
+    print(np.where( ~notValid))
     # create dataset
     for dataset in conf.experiments:
-        ds_all=xr.open_dataset((conf.experiments[dataset].series).format(year=years,experiment=dataset)).sel(model=dataset)
-        print (ds_all)
-        sat_hs=ds_all.hs
-        ds={}
-        ds['sat']=ds_all.hs.values
-        notValid=np.isnan(ds['sat'])
-        print('sat valid',np.where( ~notValid))
-        print (len(ds['sat']))
-        ds[dataset]= ds_all.model_hs.values
+        ds[dataset]= np.load((conf.experiments[dataset].series).format(year=years,experiment=dataset))
         notValid=notValid | np.isnan(ds[dataset])
-        print (len(ds[dataset]),ds['sat'].shape, ds[dataset].shape)
-        print('sat-model valid ',np.where( ~notValid))
+        print(np.where( ~notValid))
         if conf.additional_filters.ntimes:
             ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.additional_filters.ntimes))
             notValid = notValid | ntimes
@@ -138,16 +137,14 @@ def main():
     #    ds.update({dataset:ds[dataset][~notValid]})
     #    print (ds[dataset].shape)
     #    print(len( notValid))
+    print (np.argwhere(np.isnan(ds['sat'][ np.argwhere(~notValid)])))
     #print (notValid)
     # scatter plot
     for dataset in conf.experiments:
-        #print (np.argwhere(np.isnan(ds[dataset][ np.argwhere(~notValid)])))
+        print (np.argwhere(np.isnan(ds[dataset][ np.argwhere(~notValid)])))
         outName=os.path.join(outdir, 'scatter_%s_%s.jpeg' % (dataset,years))
         #scatterPlot(ds['sat'][ np.argwhere(~notValid)][:,0], ds[dataset][ np.argwhere(~notValid)][:,0], outName, title=f"{years} {dataset}",xlabel='%s Hs[m]'%conf.satName,ylabel='%s Hs[m]'%dataset)
-        #scatterPlot(ds['sat'][ np.argwhere(~notValid)[:,0]], ds[dataset][ np.argwhere(~notValid)[:,0]], outName, title=years.replace('_','-'),xlabel=f'{conf.satName}',ylabel='Model SWH [m]')
-        scatterPlot(ds['sat'][ np.argwhere(~notValid)[:,0]], ds[dataset][ np.argwhere(~notValid)[:,0]], outName, title=f"September {years.replace('_','-')}",xlabel=f'Sat SWH [m]',ylabel='Model SWH [m]')
-
-
+        scatterPlot(ds['sat'][ np.argwhere(~notValid)][:,0], ds[dataset][ np.argwhere(~notValid)][:,0], outName, title=years.replace('_','-'),xlabel=f'{conf.satName}',ylabel='Model SWH [m]')
 
 if __name__ == '__main__':
     main()
