@@ -35,7 +35,7 @@ def plot_map(name):
     gl.yformatter = LATITUDE_FORMATTER
     print(str(ds_sat.time.mean().values)[:19])
     date = datetime.strptime(str(ds_sat.time.mean().values)[:19], '%Y-%m-%dT%H:%M:%S')
-    title=f"{datetime.strftime(date, '%B %Y %d')} CFOSAT"
+    title=f"{datetime.strftime(date, '%B %Y %d')}"
     plt.title(title, fontweight="bold")
 
     msk=np.isnan(ds_ww3_box.hs.values)
@@ -43,7 +43,7 @@ def plot_map(name):
 
     #ax.tricontourf(ds_ww3.longitude.values, ds_ww3.latitude.values, ds_ww3.tri.values-1,ds_ww3.hs.values, cmap='jet', vmin=0, vmax=8)
     tri=Delaunay(np.array((ds_ww3_box.longitude.values,ds_ww3_box.latitude.values)).T).simplices
-    ax.tricontourf(ds_ww3_box.longitude.values, ds_ww3_box.latitude.values,tri ,ds_ww3_box.hs.values,np.linspace(vmin,vmax,30), cmap='jet')
+    ax.tricontourf(ds_ww3_box.longitude.values, ds_ww3_box.latitude.values,ds_ww3.tri-1 ,ds_ww3_box.hs.values,np.linspace(vmin,vmax,30), extend='both',cmap='jet')
     #ax.scatter(ds_ww3_box.longitude.values, ds_ww3_box.latitude.values, c= ds_ww3_box.hs.values,cmap='jet',
     #              )
     #ax.scatter(ds_ww3.longitude.values, ds_ww3.latitude.values, c=ds_ww3.hs.values, cmap='jet', vmin=0, vmax=8)
@@ -98,27 +98,29 @@ def plot_ts():
 
 
 vmin=0
-vmax=3.5
+vmax=2.5
 
 
-base='/work/opa/sc33616/ww3/tools/unst_Adr_2023/adriatic_2019_2020_sat_series.nc'
-base_ww3='/work/opa/ww3_cst/runs/adriatic/20191201/netcdf/ww3.20201213.nc'
-outpath='/work/opa/sc33616/ww3/tools/unst_Adr_2023/'
+#base='/work/opa/sc33616/ww3/tools/unst_Adr_2023/adriatic_2019_2020_sat_series.nc'
+base='/work/opa/sc33616/ww3/tools/iride_civitavecchia/civitavecchia_2022_sat_series.nc'
+
+base_ww3='/work/opa/sc33616/ww3/tools/iride/civitavecchia/ww3.20220927.nc'
+outpath='/work/opa/sc33616/ww3/tools/civitavecchia/'
 os.makedirs(outpath,exist_ok=True)
 
 ds = xr.open_dataset(base)
-ds_sat = ds.isel(obs=(ds.time.dt.month.isin(12)) & (ds.time.dt.day.isin(13))&(ds.time.dt.year.isin(2020)) )
+ds_sat = ds.isel(obs=(ds.time.dt.month.isin(9)) & (ds.time.dt.day.isin(27))&(ds.time.dt.year.isin(2022)) )
 print (ds_sat)
-ds_ww3=xr.open_dataset(base_ww3).isel(time=17)
+ds_ww3=xr.open_dataset(base_ww3).isel(time=9)
 print(ds_ww3)
 x_sat = ds_sat.longitude
 y_sat = ds_sat.latitude
 
-minLat=39#np.nanmin(y_sat)-0.5
-maxLat=46#np.nanmax(y_sat)+0.5
-minLon=12#np.nanmin(x_sat)-0.5
-maxLon=21#np.nanmin(x_sat)+0.5
-
+minLat=41.5#np.nanmin(y_sat)-0.5
+maxLat=42.5#np.nanmax(y_sat)+0.5
+minLon=11#np.nanmin(x_sat)-0.5
+maxLon=12.3#np.nanmin(x_sat)+0.5
+title='Civitavecchia'
 
 
 hs_sat = ds_sat.hs
@@ -136,7 +138,7 @@ ww3_points=list(map(Point,ww3_pnts))
 box=[sat_track.contains(p) for p in ww3_points]
 
 ds_ww3_box=ds_ww3.isel(node=box)
-plot_map('adriatic')
+plot_map('Civitavecchia')
 
 
 

@@ -52,8 +52,8 @@ def scatterPlot( sat, data, outname, **kwargs):
     im = ax.scatter(x, y, c=z, s=3, edgecolor='', cmap='jet')
     maxVal = np.max((x, y))
 
-    ax.set_ylim(0, maxVal)
-    ax.set_xlim(0, maxVal)
+    ax.set_ylim(0, maxVal+1)
+    ax.set_xlim(0, maxVal+1)
     ax.set_aspect(1.0)
     
     bias = BIAS (data,sat)
@@ -82,7 +82,7 @@ def scatterPlot( sat, data, outname, **kwargs):
     if 'ylabel' in kwargs:
         plt.ylabel(kwargs['ylabel'])
 
-    plt.text(1.0, 3.2, 'y = {m}x + {q}'.format(m=np.round(1+(1-slope),2),q=np.round(intercept,2)),
+    plt.text(3,0.25, 'y = {m}x + {q}'.format(m=np.round(1+(1-slope),2),q=np.round(intercept,2)),
          horizontalalignment='center',
          verticalalignment='top',
          multialignment='center',size=9,style='italic')
@@ -99,7 +99,7 @@ def scatterPlot( sat, data, outname, **kwargs):
 
 def maskNtimes(model,sat,times):
      diff=np.abs(model-sat)
-     return diff>(model*times)
+     return diff>(model*times) 
 
 def dateParser(timeObj):
     return datetime.datetime.strptime((':').join(str(timeObj).split(':')[:2]).replace('T', '-'), '%Y-%m-%d-%H:%M')
@@ -119,7 +119,7 @@ def main():
     sat_hs=sat[conf.sat.hs]
 
     ds={}
-    ds['sat']=sat_hs.data
+    ds['sat']=sat_hs.values
     notValid=np.isnan(ds['sat'])
     print(np.where( ~notValid))
     # create dataset
@@ -128,7 +128,7 @@ def main():
         notValid=notValid | np.isnan(ds[dataset])
         print(np.where( ~notValid))
         if conf.additional_filters.ntimes:
-            ntimes = maskNtimes(ds[dataset], ds['sat'], int(conf.additional_filters.ntimes))
+            ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.additional_filters.ntimes))
             notValid = notValid | ntimes
 
     # mask nans in all datasets
@@ -142,9 +142,9 @@ def main():
     # scatter plot
     for dataset in conf.experiments:
         print (np.argwhere(np.isnan(ds[dataset][ np.argwhere(~notValid)])))
-        outName=os.path.join(outdir, 'scatter%s_%s.jpeg' % (dataset,years))
+        outName=os.path.join(outdir, 'scatter_%s_%s.jpeg' % (dataset,years))
         #scatterPlot(ds['sat'][ np.argwhere(~notValid)][:,0], ds[dataset][ np.argwhere(~notValid)][:,0], outName, title=f"{years} {dataset}",xlabel='%s Hs[m]'%conf.satName,ylabel='%s Hs[m]'%dataset)
-        scatterPlot(ds['sat'][ np.argwhere(~notValid)][:,0], ds[dataset][ np.argwhere(~notValid)][:,0], outName, title=years,xlabel=f'{conf.satName}',ylabel='Model SWH [m]')
+        scatterPlot(ds['sat'][ np.argwhere(~notValid)][:,0], ds[dataset][ np.argwhere(~notValid)][:,0], outName, title=years.replace('_','-'),xlabel=f'{conf.satName}',ylabel='Model SWH [m]')
 
 if __name__ == '__main__':
     main()

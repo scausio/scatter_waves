@@ -1,6 +1,6 @@
 sat_preproc:
-  sat_names: ['CFOSAT'] #,'Cryosat-2','AltiKa','HY-2B','Jason-3','Sentinel-3A', 'Sentinel-3B']
-  years: [2019,2020]
+  sat_names: ['CFOSAT','Cryosat-2','AltiKa','HY-2B','Jason-3','Sentinel-3A', 'Sentinel-3B']
+  years: [2022]
   sat_specifics:
     lat: 'latitude'
     lon: 'longitude'
@@ -8,8 +8,8 @@ sat_preproc:
     hs: 'VAVH'
     type: 'L3'
   paths:
-    sat: '/data/inputs/metocean/historical/obs/satellite/wave/CLS/{satName}/{satType}/sec/{year}/{month}/'
-    output: '/work/opa/sc33616/ww3/tools/unst_Adr_2023'
+    sat: '/work/opa/md04916/iride/WAVE_GLO_PHY_SWH_L3_NRT_014_001/{satName}/{year}/{month}/'
+    output: '/work/opa/sc33616/ww3/tools/iride_civitavecchia'
   filenames:
     sat:
       template: 'global_vavh_l3_rt_*_*.nc'
@@ -18,10 +18,10 @@ sat_preproc:
     output: '{sat_name}_{year}'
   processing:
     boundingBox:
-      xmin: 12.40
-      xmax: 21.31
-      ymin: 38.44
-      ymax: 46.34
+      xmin: 11.2
+      xmax: 12.61
+      ymin: 41.6
+      ymax: 42.7
     filters:
       quality_check:
          variable_name: False  #qual_alt_1hz_swh_ku  ## Set to False to skip, else set the variable name
@@ -29,7 +29,7 @@ sat_preproc:
       land_masking:
         variable_name: False #'surface_type' ## Set to False to skip, else set the variable name
         value: 0                                          # set the idenfifier for the ocean
-        shapefile: "/work/opa/sc33616/ww3/tools/scatter_waves/data/shp/adriatic_ww3.shp" #'/Users/scausio/Documents/data/shapefile/blackSea_poly/bs.shp' #shapefile of your valid model domain.  if shapefile: False the tool masks land according to the dataset flag, otherwise it use the ocean shapefile
+        shapefile: "/work/opa/sc33616/ww3/tools/scatter_waves/data/shp/civitavecchia.shp" #'/Users/scausio/Documents/data/shapefile/blackSea_poly/bs.shp' #shapefile of your valid model domain.  if shapefile: False the tool masks land according to the dataset flag, otherwise it use the ocean shapefile
       threshold:
         min: 0.25 # discard Hs< min
         max: 6    # discard Hs> max
@@ -37,10 +37,10 @@ sat_preproc:
         sigma: 3  
 
 model_preproc:
-  out_dir: '/work/opa/sc33616/ww3/tools/unst_Adr_2023'
+  out_dir: '/work/opa/sc33616/ww3/tools/iride_civitavecchia'
   datasets:
    sat:
-     path: '/work/opa/sc33616/ww3/tools/unst_Adr_2023/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore{sigma}.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/CFOSAT_{year}_threshold_landMasked_qcheck_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore3.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'
+     path: '/work/opa/sc33616/ww3/tools/iride_civitavecchia/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore{sigma}.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/CFOSAT_{year}_threshold_landMasked_qcheck_zscore3.nc'  #'/work/opa/sc33616/ww3/tools/satTest_manu/{year}_CMEMS_SAT_threshold_landMasked_qcheck_zscore3.nc' #'/work/opa/sc33616/ww3/bs_validation/data/{year}_j2_blackSea_zscore3.nc'
      lat: 'latitude'
      lon: 'longitude'
      time: 'time'
@@ -52,9 +52,9 @@ model_preproc:
      #  lon: 'longitude'
      #  hs: 'VHM0'
      #  time: 'time'
-     adriatic:
+     civitavecchia:
        #path: '/work/opa/ww3_cst/runs/adriatic/output_adr2019-2020/ww3.201*.nc'
-       path: '/work/opa/ww3_cst/runs/{experiment}/20191201/netcdf/ww3*.nc' #'/work/opa/ww3_cst/runs/{experiment}/20191231/netcdf/ww3.*.nc'
+       path: '/work/opa/sc33616/ww3/tools/iride/civitavecchia/ww3*.nc' #'/work/opa/ww3_cst/runs/{experiment}/20191231/netcdf/ww3.*.nc'
        lat: 'latitude'
        lon: 'longitude'
        hs: 'hs'
@@ -66,18 +66,18 @@ model_preproc:
       min: 0.25
       max: 6
 plot:
-  satName: 'CFOSAT [m]' #,Cryosat-2,AltiKa,HY-2B,Jason-3,Sentinel-3A,Sentinel-3B [m]' # this is a string in the plot title
+  satName: 'Sat [m]'  #'CFOSAT [m]' #,Cryosat-2,AltiKa,HY-2B,Jason-3,Sentinel-3A,Sentinel-3B [m]' # this is a string in the plot title
   experiments: # experiments you want to plot
     # wam:
     #  series: '/work/opa/sc33616/ww3/tools/unst_Adr/wam_{year}_series.npy'
     #adriatic:
     #  series: '/work/opa/sc33616/ww3/tools/unst_Adr_2023/{experiment}_{year}_series.npy' # '/work/opa/sc33616/ww3/tools/satTest_manu/yourExp1_{year}_series.npy'
-    adriatic:
-      series: '/work/opa/sc33616/ww3/tools/unst_Adr_2023/{experiment}_{year}_sat_series.nc'
-  expName: 'adr_{exp}_{year}'
-  out_dir: '/work/opa/sc33616/ww3/tools/unst_Adr_2023/plots'
+    civitavecchia:
+      series: '/work/opa/sc33616/ww3/tools/iride_civitavecchia/{experiment}_{year}_sat_series.nc'
+  expName: 'civitavecchia_{exp}_{year}'
+  out_dir: '/work/opa/sc33616/ww3/tools/iride_civitavecchia/plots'
   additional_filters:
-    ntimes: 0.9 # mask data if satellite hs is > of ntimes * model hs
+    ntimes: 1.2 # mask data if satellite hs is > of ntimes * model hs
 
 
 

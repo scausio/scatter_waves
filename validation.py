@@ -60,7 +60,8 @@ def scatterPlot( sat, data, outname, **kwargs):
     corr, _ = pearsonr(x, y)
     rmse=RMSE(data,sat)
     si=ScatterIndex(data,sat)
-    slope,intercept, rvalue,pvalue,stderr=linregress( data,sat)
+    slope,intercept, rvalue,pvalue,stderr=linregress( sat,data)
+    #slope=1+(1-slope)
     plt.text(0.8, 0.72, 'Entries: %s\n'
              'BIAS: %s\n'
              'RMSE: %s\n'
@@ -69,8 +70,8 @@ def scatterPlot( sat, data, outname, **kwargs):
              'Slope: %s\n'
              'STDerr: %s'
              %(len(x),bias,rmse,si,np.round(corr,2),
-               np.round(1+(1-slope),3),np.round(stderr,3)),transform=plt.gcf().transFigure)
-
+               np.round(slope,3),np.round(stderr,3)),transform=plt.gcf().transFigure)
+    
     if 'title' in kwargs:
         plt.title(kwargs['title'])
 
@@ -82,14 +83,17 @@ def scatterPlot( sat, data, outname, **kwargs):
     if 'ylabel' in kwargs:
         plt.ylabel(kwargs['ylabel'])
 
-    plt.text(3,0.25, 'y = {m}x + {q}'.format(m=np.round(1+(1-slope),2),q=np.round(intercept,2)),
+    sin = '+'if intercept>=0 else ''
+    print (intercept, 'intercept')
+    plt.text(3,0.25, 'y = {m}x {sin} {q}'.format(m=np.round(slope,2),sin=sin,q=np.round(intercept,2)),
          horizontalalignment='center',
          verticalalignment='top',
          multialignment='center',size=9,style='italic')
 
+    #maxval=np.maximum(np.nanmax(sat),np.nanmax(data))
 
-    ax.plot([0,np.max(data)],[0,np.max(data)*1+(1-slope)], c='r')
-    ax.plot([0,np.max(data)],[0,np.max(data)],c='k',linestyle='-.')
+    ax.plot([0,maxVal],[0,maxVal*slope], c='r')
+    ax.plot([0,maxVal],[0,maxVal],c='k',linestyle='-.')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     plt.colorbar(im,fraction=0.02)
@@ -111,22 +115,23 @@ def main():
     outdir=conf.out_dir
     checkOutdir(conf.out_dir)
 
-    years=f"{conf_pre.years[0]}_{conf_pre.years[-1]}" if len(conf_pre.years)>1  else conf_pre.years[0]
+    years=f"{conf_pre.years[0]}_{conf_pre.years[-1]}" if len(conf_pre.years)>1  else f"{conf_pre.years[0]}"
 
-    sat = (conf.sat.series).format(year=years,sigma=conf_pre.processing.filters.zscore.sigma)
-    sat= xr.open_dataset(sat)
-    print (sat)
-    sat_hs=sat[conf.sat.hs]
 
-    ds={}
-    ds['sat']=sat_hs.values
-    notValid=np.isnan(ds['sat'])
-    print(np.where( ~notValid))
     # create dataset
     for dataset in conf.experiments:
-        ds[dataset]= np.load((conf.experiments[dataset].series).format(year=years,experiment=dataset))
+        ds_all=xr.open_dataset((conf.experiments[dataset].series).format(year=years,experiment=dataset)).sel(model=dataset)
+        print (ds_all)
+        sat_hs=ds_all.hs
+        ds={}
+        ds['sat']=ds_all.hs.values
+        notValid=np.isnan(ds['sat'])
+        print('sat valid',np.where( ~notValid))
+        print (len(ds['sat']))
+        ds[dataset]= ds_all.model_hs.values
         notValid=notValid | np.isnan(ds[dataset])
-        print(np.where( ~notValid))
+        print (len(ds[dataset]),ds['sat'].shape, ds[dataset].shape)
+        print('sat-model valid ',np.where( ~notValid))
         if conf.additional_filters.ntimes:
             ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.additional_filters.ntimes))
             notValid = notValid | ntimes
@@ -137,14 +142,16 @@ def main():
     #    ds.update({dataset:ds[dataset][~notValid]})
     #    print (ds[dataset].shape)
     #    print(len( notValid))
-    print (np.argwhere(np.isnan(ds['sat'][ np.argwhere(~notValid)])))
     #print (notValid)
     # scatter plot
     for dataset in conf.experiments:
-        print (np.argwhere(np.isnan(ds[dataset][ np.argwhere(~notValid)])))
+        #print (np.argwhere(np.isnan(ds[dataset][ np.argwhere(~notValid)])))
         outName=os.path.join(outdir, 'scatter_%s_%s.jpeg' % (dataset,years))
         #scatterPlot(ds['sat'][ np.argwhere(~notValid)][:,0], ds[dataset][ np.argwhere(~notValid)][:,0], outName, title=f"{years} {dataset}",xlabel='%s Hs[m]'%conf.satName,ylabel='%s Hs[m]'%dataset)
-        scatterPlot(ds['sat'][ np.argwhere(~notValid)][:,0], ds[dataset][ np.argwhere(~notValid)][:,0], outName, title=years.replace('_','-'),xlabel=f'{conf.satName}',ylabel='Model SWH [m]')
+        #scatterPlot(ds['sat'][ np.argwhere(~notValid)[:,0]], ds[dataset][ np.argwhere(~notValid)[:,0]], outName, title=years.replace('_','-'),xlabel=f'{conf.satName}',ylabel='Model SWH [m]')
+        scatterPlot(ds['sat'][ np.argwhere(~notValid)[:,0]], ds[dataset][ np.argwhere(~notValid)[:,0]], outName, title=f"September {years.replace('_','-')}",xlabel=f'{conf.satName}',ylabel='Model SWH [m]')
+
+
 
 if __name__ == '__main__':
     main()
