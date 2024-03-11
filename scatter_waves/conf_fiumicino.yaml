@@ -1,0 +1,60 @@
+sat_preproc:
+  sat_names: ['CFOSAT','Cryosat-2','AltiKa','HY-2B','Jason-3','Sentinel-3A', 'Sentinel-3B']
+  sat_specifics:
+    lat: 'latitude'
+    lon: 'longitude'
+    time: 'time'
+    hs: 'VAVH'
+    type: 'L3'
+  paths: &out
+      sat: '/data/inputs/METOCEAN/historical/obs/ocean/satellite/CMS/GlobOce/altimetry/L3/sec/{satName}/{year}/{month}/'
+      out_dir: '/work/opa/ww3_cst-dev/IRIDE/IRIDE_repo/fiumicino'
+  filenames:
+    sat:
+      template: 'global_vavh_l3_rt_*{day}*.nc'
+      cicle: '*'
+      passage: '*'
+    output: '{sat_name}_{day}'
+  processing:
+    boundingBox:
+      xmin: 10.5
+      xmax: 13
+      ymin: 40
+      ymax: 42.7
+    filters:
+      quality_check:
+         variable_name: False  #qual_alt_1hz_swh_ku  ## Set to False to skip, else set the variable name
+         value: 0                                         # set the idenfifier for good data
+      land_masking:
+        variable_name: False #'surface_type' ## Set to False to skip, else set the variable name
+        value: 0                                          # set the idenfifier for the ocean
+        shapefile: "/work/opa/ww3_cst-dev/IRIDE/IRIDE_repo/data/shp/fiumicino.shp" #'/Users/scausio/Documents/data/shapefile/blackSea_poly/bs.shp' #shapefile of your valid model domain.  if shapefile: False the tool masks land according to the dataset flag, otherwise it use the ocean shapefile
+      zscore:
+        sigma: 6
+
+model_preproc:
+  out_dir: *out
+  datasets:
+   sat:
+     path: '{out_dir}/{date}_landMasked_qcheck_zscore{sigma}_ALLSAT.nc'
+   models: # for validation of more exps please repeat the code block 'yourExp1' naming it as you prefer
+     fiumicino:
+       path: '/work/opa/ww3_cst-dev/IRIDE/fiumicino/ww3.{day}.nc' #'/work/opa/sc33616/ww3/tools/iride/civitavecchia/ww3.{day}.nc' #'/work/opa/ww3_cst/runs/{experiment}/20191231/netcdf/ww3.*.nc'
+       lat: 'latitude'
+       lon: 'longitude'
+       hs: 'hs'
+       time: 'time'
+  filters:
+    max_distance_in_space: 0.04                         # (in degree) it discards data if sat is farther this value
+    max_distance_in_time: 1                             # (in hours) it discards data if sat is farther this value
+
+plot:
+  title: '{start_date} - {end_date}'  #'CFOSAT [m]' #,Cryosat-2,AltiKa,HY-2B,Jason-3,Sentinel-3A,Sentinel-3B [m]' # this is a string in the plot title
+  out_dir: *out #'/work/opa/sc33616/work/iride_test/sat_civit/plots'
+  experiments: # experiments you want to plot
+    fiumicino:
+      series: '{out_dir}/{date}_{experiment}_series.nc'
+  filters:
+    ntimes: 0.3 # mask data if satellite hs is > of ntimes * model hs
+    min: 0.15 # discard Hs< min
+    max: 10   # discard Hs> max
