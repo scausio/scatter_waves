@@ -119,17 +119,26 @@ def main():
         ds_all=xr.open_dataset((conf.experiments[dataset].series).format(year=years,experiment=dataset)).sel(model=dataset)
         print (ds_all)
         sat_hs=ds_all.hs
-        ds={}
-        ds['sat']=ds_all.hs.values
+        model_hs=ds_all.model_hs
+
+        sat_hs.where(
+            (sat_hs <= conf.filters.max) & (sat_hs >= conf.filters.min))
+        model_hs.where(
+            (model_hs <= conf.filters.max) & (model_hs >= conf.filters.min)
+            (model_hs <= conf.filters.max) & (model_hs >= conf.filters.min))
+        ds = {}
+        ds['sat']=sat_hs.values
+        ds[dataset] = model_hs.values
+
         notValid=np.isnan(ds['sat'])
         print('sat valid',np.where( ~notValid))
         print (len(ds['sat']))
-        ds[dataset]= ds_all.model_hs.values
+
         notValid=notValid | np.isnan(ds[dataset])
         print (len(ds[dataset]),ds['sat'].shape, ds[dataset].shape)
         print('sat-model valid ',np.where( ~notValid))
-        if conf.additional_filters.ntimes:
-            ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.additional_filters.ntimes))
+        if conf.filters.ntimes:
+            ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.filters.ntimes))
             notValid = notValid | ntimes
 
     # mask nans in all datasets

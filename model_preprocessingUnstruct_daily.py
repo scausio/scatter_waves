@@ -9,15 +9,20 @@ from scipy.spatial import KDTree
 def get_satXYT(ds, conf):
     return list(zip(ds[conf.datasets.sat.lon].values, ds[conf.datasets.sat.lat].values, ds[conf.datasets.sat.time]))
 
-def getSeries(model,sat,conf,dataset,satname,outname):
+def getSeries(model,sat,sat_idxs,conf,dataset,satname,outname):
+    #define limited time from model and satellite
 
-    sat_idxs = np.array(get_satXYT(sat, conf))
+    first_time=max(sat.time.min(),model.time.min())
+    last_time=min(sat.time.max(), model.time.max())
+    sat=sat.isel(obs=(sat.time>=first_time)&(sat.time<=last_time))
+    model = model.isel(time=(model.time>=first_time)&(model.time<=last_time))
 
     print (len(model.time), len(sat.time))
+    print ('model',model)
+    print ('time',time)
     print('get filtered time')
     time_idxs = np.array([np.argmin(np.abs(model.time - t)) for t in sat.time])
     time_filt=np.array([np.abs(((model.time[time_idxs[i]] - t).values / np.timedelta64(1, 'h'))) <= conf.filters.max_distance_in_time for i,t in enumerate(sat.time)]).astype(bool)
-
 
     print (len(time_filt))
     print (time_filt.shape)
@@ -42,13 +47,16 @@ def getSeries(model,sat,conf,dataset,satname,outname):
     print (sat)
     print('replacing')
     sat['model_hs'].values=[ds]
-    sat['model_hs'].where(
-        (sat['model_hs'] <= conf.filters.threshold.max) & (sat['model_hs'] >= conf.filters.threshold.min))
-    sat['hs'].where(
-        (sat['hs'] <= conf.filters.threshold.max) & (sat['hs'] >= conf.filters.threshold.min))
+    # sat['model_hs'].where(
+    #     (sat['model_hs'] <= conf.filters.threshold.max) & (sat['model_hs'] >= conf.filters.threshold.min))
+    # sat['hs'].where(
+    #     (sat['hs'] <= conf.filters.threshold.max) & (sat['hs'] >= conf.filters.threshold.min))
     sat['hs'].attrs['satellite_file'] = satname
     sat.to_netcdf('%s_sat_series.nc' % outname)
     print ('%s_sat_series.nc saved' % outname)
+
+
+    return sat
 
 def preprocesser(ds):
     return ds[['hs', 'time', 'node', 'longitude', 'latitude', 'tri']]
@@ -57,25 +65,40 @@ def main():
     conf = getConfigurationByID('.', 'model_preproc')
     conf_pre=getConfigurationByID('.','sat_preproc')
 
-    years=f"{conf_pre.years[0]}_{conf_pre.years[-1]}" if len(conf_pre.years)>1  else conf_pre.years[0]
+    years_name=f"{conf_pre.years[0]}_{conf_pre.years[-1]}" if len(conf_pre.years)>1  else conf_pre.years[0]
 
     outdir = conf.out_dir
     os.makedirs(outdir, exist_ok=True)
 
-    sat_path=(conf.datasets.sat.path).format(year=years,sigma=conf_pre.processing.filters.zscore.sigma)
+    sat_path=(conf.datasets.sat.path).format(year=years_name,sigma=conf_pre.processing.filters.zscore.sigma)
     sat=xr.open_dataset(sat_path)
-    sat.coords['model'] = np.array(list(conf.datasets.models.keys()), dtype=str)
-    print (sat)
-    model_variable = np.zeros_like(sat['hs'], shape=tuple(sat.sizes.values()))
-    sat['model_hs'] = xr.DataArray(model_variable, dims=sat.sizes.keys())
+    # sat.coords['model'] = np.array(list(conf.datasets.models.keys()), dtype=str)
+    # print (sat)
+    # model_variable = np.zeros_like(sat['hs'], shape=tuple(sat.sizes.values()))
+    # sat['model_hs'] = xr.DataArray(model_variable, dims=sat.sizes.keys())
+    sat_idxs = np.array(get_satXYT(sat, conf))
     for dataset in conf.datasets.models:
-        outname=os.path.join(outdir,'{ds}_{yr}'.format(ds=dataset,yr=years))
+
         print ('processing %s dataset')
-        filledPath=(conf.datasets.models[dataset].path).format(experiment=dataset,year=years)
+        filledPath=(conf.datasets.models[dataset].path).format(experiment=dataset,year='*')
         print ('searching for ', filledPath)
-        ds=xr.open_mfdataset(natsorted(glob(filledPath)),preprocess=preprocesser)
-        # get timeseries
-        getSeries(ds,sat,conf,dataset,os.path.basename(sat_path),outname)
+        buffer=[]
+        for f in natsorted(glob(filledPath)):
+            day=os.path.basename(f).split('.')[1]
+            #outname = os.path.join(outdir, '{day}_{ds}_{yr}'.format(ds=dataset, yr=years_name, day=day))
+            outname = os.path.join(outdir, '{day}_{ds}'.format(ds=dataset, day=day))
+            if not os.path.exists(outname):
+                ds=xr.open_dataset(f)
+                ds=preprocesser(ds)
+                # get timeseries
+
+                daily_ds=getSeries(ds,sat,sat_idxs,conf,dataset,os.path.basename(sat_path),outname)
+                buffer.append(daily_ds)
+            else:
+                daily_ds=xr.open_dataset(outname)
+
+
+
 
 if __name__ == '__main__':
     main()

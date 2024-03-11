@@ -61,7 +61,14 @@ def cutTrackOnBox(conf,nc):
     lonName=conf.sat_specifics.lon
     print ('subsetting... %s'%nc)
     nc=xr.open_dataset(nc)
-    msk = np.where((nc[latName].data > minLat) & (nc[latName].data < maxLat) & (nc[lonName].data > minLon) & (nc[lonName].data < maxLon))[0]
+    
+    
+    msk_lon = (nc[lonName].values > minLon) & (nc[lonName].values < maxLon)
+    msk_lat = (nc[latName].values > minLat) & (nc[latName].values < maxLat)
+    #msk = np.where(msk_lon&msk_lat)[0]
+    msk = np.where((nc[latName].values > minLat) & (nc[latName].values < maxLat))[0]
+    
+    #msk = np.where((nc[latName].data > minLat) & (nc[latName].data < maxLat) & (nc[lonName].data > minLon) & (nc[lonName].data < maxLon))[0]
     if len(msk)==0:
         return False
     else:
@@ -169,8 +176,8 @@ def main():
             else:
                 ds = xr.open_dataset(outname_1)
 
-            # apply thresholds and land mask
-            outname_2 ="%s_threshold_landMasked_qcheck.nc" % os.path.join(conf.paths.output,
+            # apply land mask
+            outname_2 ="%s_landMasked_qcheck.nc" % os.path.join(conf.paths.output,
                                    conf.filenames.output.format(sat_name=sat_name, year=year))
 
             if not os.path.exists(outname_2):
@@ -189,14 +196,14 @@ def main():
                     landPoints = getLand(ds[filters.land_masking.variable_name], filters.land_masking.value)
                     ds[hs].data[landPoints]= np.nan
 
-                ds[hs].data[ds[hs].data<filters.threshold.min]=np.nan
-                ds[hs].data[ds[hs].data > filters.threshold.max] = np.nan
+                # ds[hs].data[ds[hs].data<filters.threshold.min]=np.nan
+                # ds[hs].data[ds[hs].data > filters.threshold.max] = np.nan
                 #plt.scatter(ds[hs][lon], ds[hs][lat],c=ds[hs].data)
                 #plt.show()
                 saveNc(ds, outname_2)
 
             ds = xr.open_dataset(outname_2)
-            outname_3 = "%s_threshold_landMasked_qcheck_zscore%s.nc" % (os.path.join(conf.paths.output,conf.filenames.output.format(sat_name=sat_name, year=year)),filters.zscore.sigma)
+            outname_3 = "%s_landMasked_qcheck_zscore%s.nc" % (os.path.join(conf.paths.output,conf.filenames.output.format(sat_name=sat_name, year=year)),filters.zscore.sigma)
             if not os.path.exists(outname_3):
                 # apply zscore
                 print ('masking outliers')
