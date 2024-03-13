@@ -1,27 +1,13 @@
 import matplotlib
 matplotlib.use('Agg')
-from stats import BIAS, RMSE, ScatterIndex
+from stats import BIAS, RMSE, ScatterIndex, metrics
 import xarray as xr
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 from scipy.stats import linregress, pearsonr, gaussian_kde
 from utils import getConfigurationByID
-import pandas as pd
 from mpl_toolkits.basemap import Basemap
-
-def metrics(data):
-	result = xr.Dataset()
-	bias = data['model_hs'] - data['hs']
-	result['bias'] = bias.mean(dim='obs')
-	obs_sum=data['hs'].sum(dim='obs')
-	result['nbias'] = bias.sum(dim='obs')/obs_sum
-	result['rmse'] =np.sqrt(bias ** 2.).mean(dim='obs')
-	result['nrmse'] =np.sqrt((bias ** 2.).sum(dim='obs')/(data['hs']**2).sum(dim='obs'))
-	result['nobs'] = bias.count(dim='obs')
-	result['model_hs'] = data['model_hs'].mean(dim='obs')
-	result['sat_hs'] = data['hs'].mean(dim='obs')
-	return result
 
 def coords2bins(ds_all,x,y,step):
 	y_min, y_max = np.nanmin(ds_all.latitude.values), np.nanmax(ds_all.latitude.values)
@@ -165,8 +151,8 @@ def plotMap(ds, variable, outfile):
 
 # plt.show()
 
-def main(conf_path, start_date, end_date):
-	step = 0.1
+def main(conf_path, start_date, end_date,step):
+
 	conf = getConfigurationByID(conf_path, 'plot')
 	outdir = conf.out_dir.out_dir
 	os.makedirs(outdir, exist_ok=True)
@@ -180,40 +166,16 @@ def main(conf_path, start_date, end_date):
 		sat_hs = ds_all.hs
 		model_hs = ds_all.model_hs
 		print(np.sum(np.isnan(sat_hs)))
-		sat_hs = sat_hs.where(
-			(ds_all.hs.values <= float(conf.filters.max)) & (ds_all.hs.values >= float(conf.filters.min)))
-		model_hs = model_hs.where(
-			(ds_all.model_hs.values <= float(conf.filters.max)) & (ds_all.model_hs.values >= float(conf.filters.min)))
+		# sat_hs = sat_hs.where(
+		# 	(ds_all.hs.values <= float(conf.filters.max)) & (ds_all.hs.values >= float(conf.filters.min)))
+		# model_hs = model_hs.where(
+		# 	(ds_all.model_hs.values <= float(conf.filters.max)) & (ds_all.model_hs.values >= float(conf.filters.min)))
 
 		ds = get2Dbins(ds_all, step)
 
 		print('saving output')
-		#ds.to_netcdf('test_glob.nc')
-		#for variable in ['bias','rmse']:
-	#		outName = os.path.join(outdir, f'{variable}_{dataset}_{date}.jpeg')
-	#		plotMap(ds, variable, outName)
-		for variable in ['nbias','nrmse']:
-                        outName = os.path.join(outdir, f'{variable}_{dataset}_{date}.jpeg')
-                        plotMap(ds, variable, outName)
 
-	# 	ds = {}
-	# 	ds['sat'] = sat_hs.values
-	# 	ds[dataset] = model_hs.values
-	#
-	# 	notValid = np.isnan(ds['sat'])
-	#
-	# 	print(len(ds['sat']))
-	#
-	# 	notValid = notValid | np.isnan(ds[dataset])
-	#
-	# 	print('sat-model valid ', np.where(~notValid))
-	# 	if conf.filters.ntimes:
-	# 		ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.filters.ntimes))
-	# 		notValid = notValid | ntimes
-	#
-	# for dataset in conf.experiments:
-	# 	outName = os.path.join(outdir, 'scatter_%s_%s.jpeg' % (dataset, date))
-	# 	scatterPlot(ds['sat'][np.argwhere(~notValid)[:, 0]], ds[dataset][np.argwhere(~notValid)[:, 0]],
-	# 				outName, title=f"{conf.title}".format(start_date=start_date, end_date=end_date),
-	# 				xlabel=f'Sat SWH [m]', ylabel='Model SWH [m]')
+		for variable in ['nbias','nrmse']:
+			outName = os.path.join(outdir,'plots', f'{variable}_{dataset}_{date}.jpeg')
+			plotMap(ds, variable, outName)
 

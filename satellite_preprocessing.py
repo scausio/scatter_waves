@@ -36,7 +36,7 @@ def pointInPoly(shp_path, points):
     shp = gpd.read_file(shp_path)
     mask=points[:,0]*0
     data_gdf = gpd.GeoDataFrame(mask, geometry=gpd.points_from_xy(points[:,0],points[:,1]))
-    idx = gpd.clip(data_gdf, poly).index
+    idx = gpd.clip(data_gdf, shp).index
     mask=mask.astype(bool)
     mask[idx]=True
     return np.array(mask)
@@ -175,7 +175,7 @@ class Sat_processer:
             if self.filters.land_masking.shapefile:
                 print('mask from shp')
                 landPoints = np.argwhere(
-                    ~np.array(pointInPoly(self.filters.land_masking.shapefile, zip(ds[self.hs][lon], ds[self.hs][lat]))))
+                    ~np.array(pointInPoly(self.filters.land_masking.shapefile, np.array([ds[self.hs][lon].values, ds[self.hs][lat].values]).T)))
                 ds[self.hs].values[landPoints] = np.nan
 
             if self.filters.land_masking.variable_name:

@@ -39,6 +39,7 @@ model_preproc:
      path: '{out_dir}/{date}_landMasked_qcheck_zscore{sigma}_ALLSAT.nc'
    models: # for validation of more exps please repeat the code block 'yourExp1' naming it as you prefer
      adriatic:
+       type:         #available types are ['nemo', 'cf', 'unstr']
        path: '/work/opa/ww3_cst-dev/runs/madagascar_nobound/20230222/output/ww3.{day}.nc'
        lat: 'latitude'
        lon: 'longitude'
