@@ -74,13 +74,16 @@ def main(conf_path,start_date,end_date):
     outdir=os.path.join(conf.out_dir.out_dir,'plots')
     os.makedirs(outdir,exist_ok=True)
     date = f"{start_date}_{end_date}"
-
+    ds={}
     for dataset in conf.experiments:
+        ds_all=xr.open_dataset((conf.experiments[dataset].series).format(out_dir=conf.out_dir.out_dir,date=date))
         print (dataset)
-        ds_all=xr.open_dataset((conf.experiments[dataset].series).format(out_dir=conf.out_dir.out_dir,date=date,experiment=dataset)).sel(model=dataset)
-
+        print (ds_all)
         sat_hs = ds_all.hs
         model_hs = ds_all.model_hs
+        print (model_hs)
+        model_hs = model_hs.where(~np.any(np.isnan(model_hs), axis=1), np.nan)
+
         print (np.sum (np.isnan(sat_hs)))
         print ('max_sat:',np.nanmax(ds_all.hs.values))
         print ('min_sat:',np.nanmin(ds_all.hs.values))
@@ -88,14 +91,14 @@ def main(conf_path,start_date,end_date):
             (ds_all.hs.values <= float(conf.filters.max)) & (ds_all.hs.values >= float(conf.filters.min)))
         model_hs=model_hs.where(
             (ds_all.model_hs.values <= float(conf.filters.max)) & (ds_all.model_hs.values >= float(conf.filters.min)))
-
-        ds = {}
+        
+        
         ds['sat'] = sat_hs.values
-        ds[dataset] = model_hs.values
+        ds[dataset] = model_hs.sel(model=dataset).values
 
         notValid=np.isnan(ds['sat'])
 
-        print (len(ds['sat']))
+        print (len(ds['sat']),ds[dataset].shape)
 
         notValid=notValid | np.isnan(ds[dataset])
 
@@ -103,9 +106,8 @@ def main(conf_path,start_date,end_date):
         if conf.filters.ntimes:
             ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.filters.ntimes))
             notValid = notValid | ntimes
-
     for dataset in conf.experiments:
         outName=os.path.join(outdir, 'scatter_%s_%s.jpeg' % (dataset,date))
         scatterPlot(ds['sat'][ np.argwhere(~notValid)[:,0]], ds[dataset][ np.argwhere(~notValid)[:,0]],
-                    outName, title=f"{conf.title}".format(start_date=start_date,end_date=end_date),xlabel=f'Sat SWH [m]',ylabel='Model SWH [m]')
+                    outName, title=f"{conf.title} - {dataset}".format(start_date=start_date,end_date=end_date),xlabel=f'Sat SWH [m]',ylabel='Model SWH [m]')
 

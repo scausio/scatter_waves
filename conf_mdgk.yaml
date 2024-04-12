@@ -8,7 +8,7 @@ sat_preproc:
     type: 'L3'
   paths: &out
     sat: '/data/inputs/METOCEAN/historical/obs/ocean/satellite/CMS/GlobOce/altimetry/L3/sec/{satName}/{year}/{month}/'
-    out_dir: '/work/opa/ww3_cst-dev/IRIDE/IRIDE_repo/sat'
+    out_dir: '/work/cmcc/ww3_cst-dev/tools/scatter_waves/output/mdgk_spc'
   filenames:
     sat:
       template: 'global_vavh_l3_rt_*{day}*.nc'
@@ -17,9 +17,9 @@ sat_preproc:
     output: '{sat_name}_{day}'
   processing:
     boundingBox:
-      xmin: 41.2
+      xmin: 42.5
       xmax: 59
-      ymin: -30.3
+      ymin: -27.9
       ymax: -9
     filters:
       quality_check:
@@ -28,19 +28,26 @@ sat_preproc:
       land_masking:
         variable_name: False #'surface_type' ## Set to False to skip, else set the variable name
         value: 0                                          # set the idenfifier for the ocean
-        shapefile: "/work/opa/ww3_cst-dev/tools/scatter_waves/data/shp/mdgk_area.shp"
+        shapefile: "/work/cmcc/ww3_cst-dev/tools/scatter_waves/data/shp/mdgk_area.shp"
       zscore:
-        sigma: 6 
+        sigma: 3 
 
 model_preproc:
-  out_dir: *out #'/work/opa/sc33616/work/iride_test/sat'
+  out_dir: *out 
   datasets:
    sat:
      path: '{out_dir}/{date}_landMasked_qcheck_zscore{sigma}_ALLSAT.nc'
    models: # for validation of more exps please repeat the code block 'yourExp1' naming it as you prefer
-     adriatic:
-       type:         #available types are ['nemo', 'cf', 'unstr']
-       path: '/work/opa/ww3_cst-dev/runs/madagascar_nobound/20230222/output/ww3.{day}.nc'
+     mdgk:
+       type: 'unstr' #available types are ['nemo', 'cf', 'unstr']
+       path: '/work/cmcc/ww3_cst-dev/runs/madagascar_boundSpc/output/ww3.{day}.nc'
+       lat: 'latitude'
+       lon: 'longitude'
+       hs: 'hs'
+       time: 'time'
+     mdgkCur:  
+       type: 'unstr' #available types are ['nemo', 'cf', 'unstr']
+       path: '/work/cmcc/ww3_cst-dev/runs/madagascar_boundSpc_cur/20230203/runs/output/ww3.{day}.nc'
        lat: 'latitude'
        lon: 'longitude'
        hs: 'hs'
@@ -53,12 +60,14 @@ plot:
   title: '{start_date} - {end_date}' #,Cryosat-2,AltiKa,HY-2B,Jason-3,Sentinel-3A,Sentinel-3B [m]' # this is a string in the plot title
   out_dir: *out #'/work/opa/sc33616/work/iride_test/sat/plots'
   experiments: # experiments you want to plot
-    adriatic:
-      series: '{out_dir}/{date}_{experiment}_series.nc'
+    mdgk:
+      series: '{out_dir}/{date}_series.nc'
+    mdgkCur:
+      series: '{out_dir}/{date}_series.nc'      
   filters:
-    ntimes: 1.5 # mask data if satellite hs is > of ntimes * model hs
+    ntimes: 3 # mask data if satellite hs is > of ntimes * model hs
     min: 0.15 # discard Hs< min
-    max: 10   # discard Hs> max
+    max: 20   # discard Hs> max
 
 
 

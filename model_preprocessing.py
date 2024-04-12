@@ -95,14 +95,20 @@ def getSeries(model,sat,conf,conf_sat,dataset,satname,outname):
     print (data.mask_dist.shape)
     print(sat['model_hs'].values.shape)
     model_hs = data.model_hs[time_idxs[time_filt][data.mask_dist],data.idxs[data.mask_dist]]
-
+    if model_hs.shape==0:
+        return
     print (model_hs.shape)
     print('slicing sat')
-    sat=sat.isel(obs=time_filt).isel(obs=data.mask_dist)
+    sat=sat.isel(obs=time_filt).isel(obs=data.mask_dist).sel(model=[dataset])
     print('replacing')
+    print (sat)
+    print (model_hs.shape,sat['model_hs'].values.shape)
     sat['model_hs'].values=np.array([model_hs]).T
+    print (1)
     sat['hs'].attrs['satellite_file'] = satname
+    print (2)
     sat.to_netcdf('%s' % outname)
+    print (3)
     print ('%s saved' % outname)
     return sat
 
@@ -120,26 +126,40 @@ def submit(conf_path,start_date,end_date):
     os.path.join(outdir,'{date}_landMasked_qcheck_zscore{sigma}_ALLSAT.nc')
     sat_path=(conf_model.datasets.sat.path).format(out_dir=outdir,date=date,sigma=conf_sat.processing.filters.zscore.sigma)
     sat=xr.open_dataset(sat_path)
-
-    for dataset in conf_model.datasets.models:
-        outname=os.path.join(outdir,'{date}_{ds}_series.nc'.format(ds=dataset,date=date))
-        if not os.path.exists(outname):
-            buffer = []
-            for day in daysBetweenDates(start_date,end_date):
-                print (f'extracting day {day} from {dataset}')
-                outname_day = os.path.join(outdir, '{day}_{ds}.nc'.format(ds=dataset, day=day))
-                print (outname_day)
-                if not os.path.exists(outname_day):
-                    print (f'processing {dataset}')
-                    filledPath=(conf_model.datasets.models[dataset].path).format(experiment=dataset,day=day)
-                    print ('searching for ', filledPath)
-                    ds = preprocesser(xr.open_dataset(filledPath))
-
-                    daily_ds = getSeries(ds, sat, conf_model,conf_sat, dataset, os.path.basename(sat_path), outname_day)
-                    if daily_ds:
+     
+    outname_all=os.path.join(outdir,'{date}_series.nc'.format(date=date))
+    if not os.path.exists(outname_all):
+        buffer_all=[]
+        for dataset in conf_model.datasets.models:
+            outname=os.path.join(outdir,'{date}_{ds}_series.nc'.format(ds=dataset,date=date))
+            if not os.path.exists(outname):
+                buffer = []
+                for day in daysBetweenDates(start_date,end_date):
+                    print (f'extracting day {day} from {dataset}')
+                    outname_day = os.path.join(outdir, '{day}_{ds}.nc'.format(ds=dataset, day=day))
+                    print (outname_day)
+                    if not os.path.exists(outname_day):
+                        print (f'processing {dataset}')
+                        filledPath=(conf_model.datasets.models[dataset].path).format(experiment=dataset,day=day)
+                        print ('searching for ', filledPath)
+                        ds = preprocesser(xr.open_dataset(filledPath))
+                        daily_ds = getSeries(ds, sat, conf_model,conf_sat, dataset, os.path.basename(sat_path), outname_day)
                         buffer.append(daily_ds)
-                else:
-                    buffer.append(xr.open_dataset(outname_day))
-            xr.concat(buffer,dim='obs').to_netcdf(outname)
+                        try:
+                            ds = preprocesser(xr.open_dataset(filledPath))
+                            daily_ds = getSeries(ds, sat, conf_model,conf_sat, dataset, os.path.basename(sat_path), outname_day)
+                            buffer.append(daily_ds)
+                        except:
+                            pass
+                    else:
+                        buffer.append(xr.open_dataset(outname_day))
+                ds_model_out=xr.concat(buffer,dim='obs')
+                buffer_all.append(ds_model_out)
+                ds_model_out.to_netcdf(outname)
+            else:
+                buffer_all.append(xr.open_dataset(outname))
 
+        ds_out=xr.merge(buffer_all)
+        ds_out['model']=[ds for ds in conf_model.datasets.models]
+        ds_out.to_netcdf(outname_all)
 

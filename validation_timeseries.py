@@ -9,17 +9,19 @@ from stats import metrics
 from utils import getConfigurationByID
 
 
-def timeseries(ds, outname, **kwargs):
+def timeseries(ds,datasets, outname, **kwargs):
 
     if 'title' in kwargs:
         plt.title(kwargs['title'])
 
-    data=ds.groupby('day').apply(metrics)
-
-    print (data)
+    data_allmodels=ds.groupby('day').apply(metrics)
+    print (data_allmodels)
     fig, ax = plt.subplots()
+    colors=['r','b','m','o','c','g']
+    for i,dataset in enumerate(datasets):
+        data=data_allmodels.sel(model=dataset)
+        ax.plot(data.day, data['model_hs'], c=colors[i], label=dataset.capitalize())
     ax.plot(data.day,data['sat_hs'],  c='k', label='satellite')
-    ax.plot(data.day, data['model_hs'], c='r', label='model')
     plt.ylabel('SWH [m]')
     plt.xticks(rotation=30)
     #
@@ -31,9 +33,10 @@ def timeseries(ds, outname, **kwargs):
     f, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6.5), sharex=True)
     if 'title' in kwargs:
         plt.suptitle(kwargs['title'])
-
-    ax1.plot(data.day,data['nrmse'], c='k', label=f"NRMSE:{str(np.nanmean(data['nrmse']))[:5]}")
-    ax2.plot(data.day,data['nbias'], c='k', label=f"NBIAS:{str(np.nanmean(data['nrmse']))[:6]}")
+    for i,dataset in enumerate(datasets):
+        data=data_allmodels.sel(model=dataset)
+        ax1.plot(data.day,data['nrmse'], c=colors[i], label=f"{dataset.capitalize()}:{str(np.nanmean(data['nrmse']))[:5]}")
+        ax2.plot(data.day,data['nbias'], c=colors[i], label=f"{dataset.capitalize()}:{str(np.nanmean(data['nbias']))[:6]}")
     ax1.set_ylabel('NRMSE [m]')
     ax2.set_ylabel('NBIAS [m]')
 
@@ -68,41 +71,15 @@ def main(conf_path,start_date,end_date):
     date = f"{start_date}_{end_date}"
 
     for dataset in conf.experiments:
-        print (dataset)
-        ds_all=xr.open_dataset((conf.experiments[dataset].series).format(out_dir=conf.out_dir.out_dir,date=date,experiment=dataset)).sel(model=dataset)
+        ds_all=xr.open_dataset((conf.experiments[dataset].series).format(out_dir=conf.out_dir.out_dir,date=date,experiment=dataset))#.sel(model=dataset)
         ds_all['day'] = ('obs', ds_all.time.dt.floor('d').values)
-        #sat_hs = ds_all.hs
-        #model_hs = ds_all.model_hs
-
-        # print (np.sum (np.isnan(sat_hs)))
-        # print ('max_sat:',np.nanmax(ds_all.hs.values))
-        # print ('min_sat:',np.nanmin(ds_all.hs.values))
-        # sat_hs=sat_hs.where(
-        #     (ds_all.hs.values <= float(conf.filters.max)) & (ds_all.hs.values >= float(conf.filters.min)))
-        # model_hs=model_hs.where(
-        #     (ds_all.model_hs.values <= float(conf.filters.max)) & (ds_all.model_hs.values >= float(conf.filters.min)))
-        #
-        # ds = {}
-        # ds['sat'] = sat_hs.values
-        # ds[dataset] = model_hs.values
-        #
-        # notValid=np.isnan(ds['sat'])
-        #
-        # print (len(ds['sat']))
-        #
-        # notValid=notValid | np.isnan(ds[dataset])
-        #
-        # print('sat-model valid ',np.where( ~notValid))
-        # if conf.filters.ntimes:
-        #     ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.filters.ntimes))
-        #     notValid = notValid | ntimes
-
-    for dataset in conf.experiments:
-        outName=os.path.join(outdir, 'timeseriesAvg_%s_%s.jpeg' % (dataset,date))
+        continue
+    #for dataset in conf.experiments:
+    outName=os.path.join(outdir, 'timeseriesAvg_%s_%s.jpeg' % (dataset,date))
 
         # sat=ds['sat'][np.argwhere(~notValid)[:, 0]]
         # model=ds[dataset][np.argwhere(~notValid)[:, 0]]
-        print (ds_all)
-        timeseries(ds_all,
+    print (ds_all)
+    timeseries(ds_all,conf.experiments,
                    outName, title=f"{conf.title}".format(start_date=start_date,end_date=end_date))
 
