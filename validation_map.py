@@ -164,7 +164,12 @@ def main(conf_path, start_date, end_date,step):
             model=dataset)
 
         sat_hs = ds_all.hs
+
         model_hs = ds_all.model_hs
+        if conf.filters.unbias in ['True','T','TRUE','t']:
+            sat_hs-=np.nanmean(sat_hs)
+            sat_hs+=np.nanmean(model_hs)
+
         print(np.sum(np.isnan(sat_hs)))
         # sat_hs = sat_hs.where(
         #   (ds_all.hs.values <= float(conf.filters.max)) & (ds_all.hs.values >= float(conf.filters.min)))

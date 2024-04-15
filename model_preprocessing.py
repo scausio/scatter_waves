@@ -19,15 +19,13 @@ class Reader():
     def nemo(self):
         pass
     def cf(self):
-        hs=self.model[self.conf.datasets.models[self.dataset].hs].isel(time=0)
-        land=np.isnan(hs.flatten())
-        all_lon=self.model[self.conf.datasets.models[self.dataset].lon].values
-        all_lat=self.model[self.conf.datasets.models[self.dataset].lat].values
-        xx,yy=np.meshgrid(all_lon,all_lat)
-        lon=xx.flatten()[~land]
-        lat=yy.flatten()[~land]
-        hs=hs[~land]
-        self.run(lon, lat, hs)
+        hs=self.model[self.conf.datasets.models[self.dataset].hs]
+        stacked_hs = hs.stack(node=(self.conf.datasets.models[self.dataset].lat, self.conf.datasets.models[self.dataset].lon))
+        stacked_hs = stacked_hs.dropna(dim='node')
+        lon=stacked_hs.longitude.values
+        lat=stacked_hs.latitude.values
+        print ('lon:',lon.shape,'lat:',lat.shape, 'hs:', stacked_hs.shape)
+        self.run(lon, lat, stacked_hs.values)
 
     def unstruct(self):
         lon=self.model[self.conf.datasets.models[self.dataset].lon].values
@@ -55,7 +53,7 @@ class Reader():
 
     def read(self):
         tp=self.conf.datasets.models[self.dataset].type
-        av_tp=['u','unstr','unstruct','unstructured']
+        av_tp=['u','unstr','unstruct','unstructured', 'nemo','cf','cf_compl','cf_compliant','reg','regular']
         if not tp.lower() in av_tp:
             exit(f'Please check model type. Your selection is: {tp}, available types are {av_tp}')
         elif tp.lower() in ['u','unstr','unstruct','unstructured']:
@@ -64,10 +62,9 @@ class Reader():
         elif tp.lower() in ['nemo','nemo','nemo','nemo']:
             print  ('you are using unstructured model')
             self.nemo()
-        elif tp.lower() in ['cf','cf_compl','cf_compliant']:
-            print  ('you are using unstructured model')
+        elif tp.lower() in ['cf','cf_compl','cf_compliant','reg','regular']:
+            print  ('you are using CF COMPLIANT data')
             self.cf()
-
 def get_satXYT(ds, conf):
     return list(zip(ds[conf.sat_specifics.lon].values, ds[conf.sat_specifics.lat].values, ds[conf.sat_specifics.time]))
 
@@ -94,6 +91,7 @@ def getSeries(model,sat,conf,conf_sat,dataset,satname,outname):
     print (time_filt.shape)
     print (data.mask_dist.shape)
     print(sat['model_hs'].values.shape)
+    print (sat)
     model_hs = data.model_hs[time_idxs[time_filt][data.mask_dist],data.idxs[data.mask_dist]]
     if model_hs.shape==0:
         return
@@ -113,7 +111,11 @@ def getSeries(model,sat,conf,conf_sat,dataset,satname,outname):
     return sat
 
 def preprocesser(ds):
-    return ds[['hs', 'time', 'node', 'longitude', 'latitude', 'tri']]
+    try:
+        ds[['hs', 'time', 'node', 'longitude', 'latitude', 'tri']]
+    except:
+        ds[['hs', 'time', 'longitude', 'latitude']]
+    return ds
 
 def submit(conf_path,start_date,end_date):
     conf_model = getConfigurationByID(conf_path, 'model_preproc')

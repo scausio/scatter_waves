@@ -106,8 +106,14 @@ def main(conf_path,start_date,end_date):
         if conf.filters.ntimes:
             ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.filters.ntimes))
             notValid = notValid | ntimes
+
     for dataset in conf.experiments:
         outName=os.path.join(outdir, 'scatter_%s_%s.jpeg' % (dataset,date))
-        scatterPlot(ds['sat'][ np.argwhere(~notValid)[:,0]], ds[dataset][ np.argwhere(~notValid)[:,0]],
+        sat2plot=ds['sat'][ np.argwhere(~notValid)[:,0]]
+        mod2plot=ds[dataset][ np.argwhere(~notValid)[:,0]]
+        if conf.filters.unbias in ['True','T','TRUE','t']:
+            sat2plot-=np.nanmean(sat2plot)
+            sat2plot+=np.nanmean(mod2plot)
+        scatterPlot(sat2plot,mod2plot,
                     outName, title=f"{conf.title} - {dataset}".format(start_date=start_date,end_date=end_date),xlabel=f'Sat SWH [m]',ylabel='Model SWH [m]')
 
