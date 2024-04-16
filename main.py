@@ -3,6 +3,7 @@ from model_preprocessing import submit as model_preproc
 from validation import main as scatter_plot
 from validation_map import main as stats_map
 from validation_timeseries import main as timeseries
+from validation_tracks import main as tracks
 import os
 from argparse import ArgumentParser
 
@@ -15,11 +16,11 @@ conf_path=args.configuration
 
 #start_date=20220901
 #end_date=20220930
-resolution=0.1
 start_date=args.start_date
 end_date=args.end_date
 sat=Sat_processer(conf_path,start_date,end_date).run()
 model_preproc(conf_path,start_date,end_date)
 scatter_plot(conf_path,start_date,end_date)
-stats_map(conf_path,start_date,end_date,resolution)
+stats_map(conf_path,start_date,end_date)
 timeseries(conf_path,start_date,end_date)
+tracks(conf_path,start_date,end_date)

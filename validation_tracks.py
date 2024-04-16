@@ -1,6 +1,5 @@
 import matplotlib
 matplotlib.use('Agg')
-from stats import  metrics
 import xarray as xr
 import numpy as np
 import os
@@ -9,43 +8,10 @@ from utils import getConfigurationByID
 from mpl_toolkits.basemap import Basemap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-def coords2bins(ds_all,x,y,step):
-    y_min, y_max = np.nanmin(ds_all.latitude.values), np.nanmax(ds_all.latitude.values)
-    x_min, x_max = np.nanmin(ds_all.longitude.values), np.nanmax(ds_all.longitude.values)
-    lon_bins = np.arange(x[np.argmin(np.abs(x - x_min))], x[np.argmin(np.abs(x - x_max))] + step, step)
-    lat_bins = np.arange(y[np.argmin(np.abs(y - y_min))], y[np.argmin(np.abs(y - y_max))] + step, step)
-    return lon_bins,lat_bins
 
-def targetGrid(step):
-    x = np.arange(-180-(step/2), 180 + step, step)
-    y = np.arange(-90-(step/2), 90 + step, step)
-    return x,y
-
-def get2Dbins(data,step):
-    print(f'target grid definition at {step} of resolution')
-    x,y=targetGrid(step)
-    print('2-dimensional binning')
-    lon_bins,lat_bins=coords2bins(data,x,y, step)
-    grouped_lon = data.groupby_bins('longitude', lon_bins)
-    print('lon binning')
-    lon_=[i.mid for i in grouped_lon.groups.keys()]
-    buffer=[]
-    print ('lat binning')
-    for i,lon_group in enumerate(grouped_lon._iter_grouped()):
-        print (len(list(grouped_lon._iter_grouped()))-i)
-        lat_group=lon_group.groupby_bins('latitude', lat_bins)
-        lat_ = [i.mid for i in lat_group.groups.keys()]
-        results=lat_group.apply(metrics)
-        results = results.rename(latitude_bins='latitude')
-        results=results.assign_coords({"latitude": [i.mid for i in results.latitude.values]})
-        buffer.append(results)
-    print('reordering lon')
-    out=xr.concat([buffer[i] for i in np.argsort(lon_)], 'longitude')
-    print('redefining lon')
-    out=out.assign_coords({"longitude": np.array(lon_)[np.argsort(lon_)]})
-    return out.transpose()
-
-def plotMap(ds, variable,coast_resolution, outfile):
+def plotTracks(ds, variable,coast_resolution, outfile):
+    x=ds.longitude.values
+    y=ds.latitude.values
     fig = plt.figure()
     fig.set_size_inches(8, 8)
     m = Basemap(llcrnrlon=ds.longitude.min()-0.25, llcrnrlat=ds.latitude.min()-0.25,
@@ -81,17 +47,13 @@ def plotMap(ds, variable,coast_resolution, outfile):
         cmap='seismic'
         var=ds[variable]*100
 
-    im= plt.imshow(var, origin='lower', cmap=cmap, vmin=vmin,
-                         vmax=vmax,
-                         extent=[ds.longitude.min(), ds.longitude.max(), ds.latitude.min(), ds.latitude.max()])
+    im= plt.scatter(x,y,c=var,cmap=cmap,vmin=vmin, vmax=vmax)
     ax=plt.gca()
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
     plt.savefig(outfile)
     plt.close()
-
-
 
 
 # plt.show()
@@ -116,11 +78,18 @@ def main(conf_path, start_date, end_date):
             sat_hs+=np.nanmean(model_hs)
 
         print(np.sum(np.isnan(sat_hs)))
+        sat_hs = sat_hs.where(
+          (ds_all.hs.values <= float(conf.filters.max)) & (ds_all.hs.values >= float(conf.filters.min)))
+        model_hs = model_hs.where(
+          (ds_all.model_hs.values <= float(conf.filters.max)) & (ds_all.model_hs.values >= float(conf.filters.min)))
+        ds_all.hs.values=sat_hs
+        ds_all.model_hs.values = model_hs
+        ds_all['bias']=model_hs-sat_hs
+        ds_all['nbias'] = (model_hs - sat_hs)/sat_hs
+        ds_all['rmse']=np.sqrt((model_hs**2)-(sat_hs**2))
+        ds_all['nrmse'] =  ds_all['rmse']/sat_hs
 
-        ds = get2Dbins(ds_all, conf.binning_resolution)
-        print('saving output')
-
-        for variable in ['nbias','nrmse']:
-            outName = os.path.join(outdir,'plots', f'{variable}_{dataset}_{date}.jpeg')
-            plotMap(ds, variable, conf.coast_resolution, outName)
+        for variable in ['nbias','nrmse','bias','rmse']:
+            outName = os.path.join(outdir,'plots', f'tracks_{variable}_{dataset}_{date}.jpeg')
+            plotTracks(ds_all, variable,conf.coast_resolution, outName)
 

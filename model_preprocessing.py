@@ -144,9 +144,6 @@ def submit(conf_path,start_date,end_date):
                         print (f'processing {dataset}')
                         filledPath=(conf_model.datasets.models[dataset].path).format(experiment=dataset,day=day)
                         print ('searching for ', filledPath)
-                        ds = preprocesser(xr.open_dataset(filledPath))
-                        daily_ds = getSeries(ds, sat, conf_model,conf_sat, dataset, os.path.basename(sat_path), outname_day)
-                        buffer.append(daily_ds)
                         try:
                             ds = preprocesser(xr.open_dataset(filledPath))
                             daily_ds = getSeries(ds, sat, conf_model,conf_sat, dataset, os.path.basename(sat_path), outname_day)

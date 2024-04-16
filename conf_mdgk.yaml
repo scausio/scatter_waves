@@ -59,6 +59,8 @@ model_preproc:
 plot:
   title: '{start_date} - {end_date}' #,Cryosat-2,AltiKa,HY-2B,Jason-3,Sentinel-3A,Sentinel-3B [m]' # this is a string in the plot title
   out_dir: *out #'/work/opa/sc33616/work/iride_test/sat/plots'
+  coast_resolution: 'i'
+  binning_resolution: 0.1
   experiments: # experiments you want to plot
     mdgk:
       series: '{out_dir}/{date}_series.nc'

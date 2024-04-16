@@ -1,6 +1,5 @@
 import matplotlib
 matplotlib.use('Agg')
-from stats import BIAS, RMSE, ScatterIndex
 import xarray as xr
 import numpy as np
 import os
@@ -60,14 +59,6 @@ def timeseries(ds,conf, outname, **kwargs):
     plt.savefig(outname.replace('Avg','_stats_'), dpi=200)
     plt.close()
 
-
-
-def maskNtimes(model,sat,times):
-     diff=np.abs(model-sat)
-     print ('diff',np.nanmax(diff))
-     print ('mod-tim',np.nanmax(model*times))
-     print ('times',np.nanmax(times))
-     return diff>(model*times) 
 
 def main(conf_path,start_date,end_date):
 
