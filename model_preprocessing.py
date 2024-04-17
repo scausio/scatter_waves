@@ -72,21 +72,23 @@ def getSeries(model,sat,conf,conf_sat,dataset,satname,outname):
     #define limited time from model and satellite
     first_time=max(sat.time.min(),model.time.min())
     last_time=min(sat.time.max(), model.time.max())
+    print('Time range:',first_time,last_time)
     sat=sat.isel(obs=(sat.time>=first_time)&(sat.time<=last_time))
     model = model.isel(time=(model.time>=first_time)&(model.time<=last_time))
-    print('get filtered time')
+    print('filtering time')
     time_idxs = np.array([np.argmin(np.abs(model.time.values - t.values)) for t in sat.time])
     time_filt=np.array([np.abs(((model.time[time_idxs[i]] - t).values / np.timedelta64(1, 'h'))) <= conf.filters.max_distance_in_time for i,t in enumerate(sat.time)]).astype(bool)
     sat_idxs = np.array(get_satXYT(sat, conf_sat))
     try:
         sat_points = np.array((sat_idxs[time_filt, 0], sat_idxs[time_filt, 1])).T
     except:
+        print ('no valid sat time available')
         return
     print(np.array(sat_idxs).shape)
 
     data=Reader(conf,model,dataset,sat_points)
     print (data.model_hs.shape)
-    print('slicing in time')
+    print('slicing model in time')
     print (time_idxs.shape)
     print (time_filt.shape)
     print (data.mask_dist.shape)
@@ -94,19 +96,17 @@ def getSeries(model,sat,conf,conf_sat,dataset,satname,outname):
     print (sat)
     model_hs = data.model_hs[time_idxs[time_filt][data.mask_dist],data.idxs[data.mask_dist]]
     if model_hs.shape==0:
+        print ('no valid model time available')
         return
     print (model_hs.shape)
-    print('slicing sat')
+    print('slicing sat according to distance and time')
     sat=sat.isel(obs=time_filt).isel(obs=data.mask_dist).sel(model=[dataset])
-    print('replacing')
+    print('Filling dataset model_hs')
     print (sat)
     print (model_hs.shape,sat['model_hs'].values.shape)
     sat['model_hs'].values=np.array([model_hs]).T
-    print (1)
     sat['hs'].attrs['satellite_file'] = satname
-    print (2)
     sat.to_netcdf('%s' % outname)
-    print (3)
     print ('%s saved' % outname)
     return sat
 
@@ -147,10 +147,13 @@ def submit(conf_path,start_date,end_date):
                         try:
                             ds = preprocesser(xr.open_dataset(filledPath))
                             daily_ds = getSeries(ds, sat, conf_model,conf_sat, dataset, os.path.basename(sat_path), outname_day)
-                            buffer.append(daily_ds)
+                            if daily_ds:
+                                buffer.append(daily_ds)
                         except:
+                            print (f'{outname_day} not available')
                             pass
                     else:
+                        print (f'buffering {outname_day}')
                         buffer.append(xr.open_dataset(outname_day))
                 ds_model_out=xr.concat(buffer,dim='obs')
                 buffer_all.append(ds_model_out)
