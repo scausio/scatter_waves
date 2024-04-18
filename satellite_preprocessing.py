@@ -182,13 +182,9 @@ class Sat_processer:
                 print('mask from variable')
                 landPoints = getLand(ds[self.filters.land_masking.variable_name], self.filters.land_masking.value)
                 ds[self.hs].data[landPoints] = np.nan
-
-            # ds[self.hs].data[ds[self.hs].data < self.filters.threshold.min] = np.nan
-            # ds[self.hs].data[ds[self.hs].data > self.filters.threshold.max] = np.nan
-            # plt.scatter(ds[hs][lon], ds[hs][lat],c=ds[hs].data)
-            # plt.show()
             ds=ds[[self.hs,time,lon,lat]]
             saveNc(ds, outname)
+
         return xr.open_dataset(outname)
 
     def ZScore(self,ds,outname):
@@ -197,11 +193,12 @@ class Sat_processer:
         if not os.path.exists(outname):
             # apply zscore
             print('masking outliers')
-            idx= maskOutliers(ds['hs'], self.filters)
+            idx= maskOutliers(ds[self.conf.sat_specifics.hs], self.filters)
             #saveNc(ds, outname)
             #ds_msk = xr.open_dataset(outname)
             #m = np.argwhere(~np.isnan(ds_msk['hs'].data))[:, 0]
-            ds = ds.isel(obs=idx)
+            #ds = ds.isel(obs=idx)
+            ds=ds.isel({self.conf.sat_specifics.time:idx})
             #print(m.shape)
             # ds=ds.isel(**{conf.sat_specifics.time:m})
             #os.remove(outname)
@@ -212,7 +209,8 @@ class Sat_processer:
 
     def merge_sats(self):
         base = self.conf.paths.out_dir
-        fname_tmpl = f'*_landMasked_qcheck.nc'
+
+        fname_tmpl = '*_landMasked_qcheck_zscore{sigma}.nc'.format(sigma= self.conf.processing.filters.zscore.sigma)
         date = f"{self.start_date}_{self.end_date}"
         if not os.path.exists(os.path.join(base, '{yy}_{tmpl}_ALLSAT.nc'.format(yy=date, tmpl=fname_tmpl[2:-3]))):
             fileList = natsorted(glob(os.path.join(base, fname_tmpl)))
@@ -245,8 +243,8 @@ class Sat_processer:
             mrgd.to_netcdf(os.path.join(base, '{yy}_{tmpl}_ALLSAT.nc'.format(yy=date, tmpl=fname_tmpl[2:-3])))
         else:
             mrgd=xr.open_dataset(os.path.join(base, '{yy}_{tmpl}_ALLSAT.nc'.format(yy=date, tmpl=fname_tmpl[2:-3])))
-        self.ZScore(mrgd, os.path.join(base, '{yy}_{tmpl}_zscore{sigma}_ALLSAT.nc'.format(
-            yy=date, tmpl=(fname_tmpl[2:-3]),sigma=self.conf.processing.filters.zscore.sigma)))
+        # self.ZScore(mrgd, os.path.join(base, '{yy}_{tmpl}_zscore{sigma}_ALLSAT.nc'.format(
+        #     yy=date, tmpl=(fname_tmpl[2:-3]),sigma=self.conf.processing.filters.zscore.sigma)))
 
     def run(self):
         date = f"{self.start_date}_{self.end_date}"
@@ -263,4 +261,9 @@ class Sat_processer:
                     if ds:
                         print ('track in domain: proceding with masking')
                         ds=self.masking(ds, sat_name, day)
+                        outname = os.path.join(self.conf.paths.out_dir,"{base}_landMasked_qcheck_zscore{sigma}.nc".format(base=self.conf.filenames.output.format(
+                                                                               sat_name=sat_name,day=day),sigma=self.conf.processing.filters.zscore.sigma))
+                        if not os.path.exists(outname):
+                            ds=self.ZScore(ds, outname)
+
             self.merge_sats()

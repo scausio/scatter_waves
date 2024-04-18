@@ -18,7 +18,7 @@ start_date=args.start_date
 end_date=args.end_date
 sat=Sat_processer(conf_path,start_date,end_date).run()
 model_preproc(conf_path,start_date,end_date)
-#scatter_plot(conf_path,start_date,end_date)
+scatter_plot(conf_path,start_date,end_date)
 stats_map(conf_path,start_date,end_date)
 timeseries(conf_path,start_date,end_date)
-#tracks(conf_path,start_date,end_date)
+tracks(conf_path,start_date,end_date)

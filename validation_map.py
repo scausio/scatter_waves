@@ -102,6 +102,7 @@ def main(conf_path, start_date, end_date):
     conf = getConfigurationByID(conf_path, 'plot')
     outdir = conf.out_dir.out_dir
     os.makedirs(outdir, exist_ok=True)
+    os.makedirs(os.path.join(outdir,'plots'), exist_ok=True)
     date = f"{start_date}_{end_date}"
 
     for dataset in conf.experiments:
