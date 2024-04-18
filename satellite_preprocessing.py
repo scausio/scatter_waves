@@ -261,5 +261,6 @@ class Sat_processer:
                     print(f"Processing {day}")
                     ds=self.trackInArea(sat_name, day)
                     if ds:
+                        print ('track in domain: proceding with masking')
                         ds=self.masking(ds, sat_name, day)
             self.merge_sats()

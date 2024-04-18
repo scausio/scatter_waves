@@ -6,7 +6,7 @@ import xarray as xr
 
 
 
-f='/work/opa/ww3_cst-dev/IRIDE/IRIDE_repo/acquaculture/20220101_20231231_landMasked_qcheck_ALLSAT.nc'
+f='/work/cmcc/ww3_cst-dev/tools/scatter_waves/output/Uglob2019/20190701_20190731_landMasked_qcheck_zscore3_ALLSAT.nc'
 ds=xr.open_dataset(f)
 print (ds)
 x=ds.longitude.values

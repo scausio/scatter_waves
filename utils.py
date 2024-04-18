@@ -16,4 +16,16 @@ def daysBetweenDates(start_date,end_date):
     delta = end_date - start_date  # returns timedelta
     return [(start_date + timedelta(days=i)).strftime('%Y%m%d') for i in range(delta.days + 1)]
 
-
+def ticker(coord_min,coord_max):
+    dif =coord_max - coord_min
+    if dif >= 180:
+        step = 25
+    elif dif >= 50:
+        step = 10
+    elif dif >= 25:
+        step = 5
+    elif dif >= 10:
+        step = 2
+    else:
+        step = 1
+    return step

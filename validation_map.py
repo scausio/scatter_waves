@@ -5,7 +5,7 @@ import xarray as xr
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from utils import getConfigurationByID
+from utils import getConfigurationByID,ticker
 from mpl_toolkits.basemap import Basemap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -52,8 +52,9 @@ def plotMap(ds, variable,coast_resolution, outfile):
                 urcrnrlat=ds.latitude.max()+0.25, urcrnrlon=ds.longitude.max()+0.25, resolution=coast_resolution)
     m.drawcoastlines()
     m.fillcontinents('Whitesmoke')
-    meridians = np.arange(-180, 190, 2)
-    parallels = np.arange(-90,90, 2)
+    tick_spacing=ticker(ds.latitude.min(),ds.latitude.max())
+    meridians = np.arange(-180, 180+tick_spacing, tick_spacing)
+    parallels = np.arange(-90,90+tick_spacing, tick_spacing)
     m.drawparallels(parallels, labels=[True, False, False, True], linewidth=0.1)
     m.drawmeridians(meridians, labels=[True, False, False, True], linewidth=0.1)
     if variable=='bias':

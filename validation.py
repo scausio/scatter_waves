@@ -17,7 +17,7 @@ def scatterPlot( sat, data, outname, **kwargs):
     x, y, z = sat[idx], data[idx], z[idx]
     fig, ax = plt.subplots()
     im = ax.scatter(x, y, c=z, s=3, cmap='jet')
-    maxVal = np.max((x, y))
+    maxVal = np.max((np.max(x), np.max(y)))
 
     ax.set_ylim(0, maxVal+1)
     ax.set_xlim(0, maxVal+1)
@@ -115,5 +115,5 @@ def main(conf_path,start_date,end_date):
             sat2plot-=np.nanmean(sat2plot)
             sat2plot+=np.nanmean(mod2plot)
         scatterPlot(sat2plot,mod2plot,
-                    outName, title=f"{conf.title} - {dataset}".format(start_date=start_date,end_date=end_date),xlabel=f'Sat SWH [m]',ylabel='Model SWH [m]')
+                    outName, title=f"{conf.title} - {dataset.capitalize()}".format(start_date=start_date,end_date=end_date),xlabel=f'Sat SWH [m]',ylabel='Model SWH [m]')
 
