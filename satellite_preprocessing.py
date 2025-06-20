@@ -193,12 +193,14 @@ class Sat_processer:
         if not os.path.exists(outname):
             # apply zscore
             print('masking outliers')
-            idx= maskOutliers(ds[self.conf.sat_specifics.hs], self.filters)
+            idx= maskOutliers(ds['hs'], self.filters)
             #saveNc(ds, outname)
             #ds_msk = xr.open_dataset(outname)
             #m = np.argwhere(~np.isnan(ds_msk['hs'].data))[:, 0]
             #ds = ds.isel(obs=idx)
-            ds=ds.isel({self.conf.sat_specifics.time:idx})
+            #ds=ds.isel({self.conf.sat_specifics.time:idx})
+            print (ds)
+            s=ds.isel(obs=idx)
             #print(m.shape)
             # ds=ds.isel(**{conf.sat_specifics.time:m})
             #os.remove(outname)
@@ -209,8 +211,8 @@ class Sat_processer:
 
     def merge_sats(self):
         base = self.conf.paths.out_dir
-
-        fname_tmpl = '*_landMasked_qcheck_zscore{sigma}.nc'.format(sigma= self.conf.processing.filters.zscore.sigma)
+        fname_tmpl = f'*_landMasked_qcheck.nc'
+        #fname_tmpl = '*_landMasked_qcheck_zscore{sigma}.nc'.format(sigma= self.conf.processing.filters.zscore.sigma)
         date = f"{self.start_date}_{self.end_date}"
         if not os.path.exists(os.path.join(base, '{yy}_{tmpl}_ALLSAT.nc'.format(yy=date, tmpl=fname_tmpl[2:-3]))):
             fileList = natsorted(glob(os.path.join(base, fname_tmpl)))
@@ -223,12 +225,24 @@ class Sat_processer:
 
             for f in fileList[1:]:
                 print(f)
+                
                 ds = xr.open_dataset(f)
+                #if len(ds.time.values)<1:
+                #    continue
+                #if len(obs)<1:
+                #    obs = np.arange(len(ds.time.values))
+                #else:
                 obs = np.arange(len(ds.time.values)) + (obs[-1] + 1)
                 ds['obs'] = ('time', obs)
                 ds = ds.swap_dims({'time': 'obs'}).reset_index('obs')
                 print('ds file len:',len(ds.obs.values))
-
+                #if 'time' in ds.coords:
+                #    if len(obs)==len(ds['time']):
+                #        mrgd=ds
+                #    else:
+                #        mrgd = xr.concat([mrgd, ds], 'obs').reset_index('obs')
+                #else:
+                #    print("Dataset senza 'time':", ds)
                 mrgd = xr.concat([mrgd, ds], 'obs').reset_index('obs')
 
                 print('mrg file len:',len(mrgd.obs.values))
@@ -243,8 +257,8 @@ class Sat_processer:
             mrgd.to_netcdf(os.path.join(base, '{yy}_{tmpl}_ALLSAT.nc'.format(yy=date, tmpl=fname_tmpl[2:-3])))
         else:
             mrgd=xr.open_dataset(os.path.join(base, '{yy}_{tmpl}_ALLSAT.nc'.format(yy=date, tmpl=fname_tmpl[2:-3])))
-        # self.ZScore(mrgd, os.path.join(base, '{yy}_{tmpl}_zscore{sigma}_ALLSAT.nc'.format(
-        #     yy=date, tmpl=(fname_tmpl[2:-3]),sigma=self.conf.processing.filters.zscore.sigma)))
+        self.ZScore(mrgd, os.path.join(base, '{yy}_{tmpl}_zscore{sigma}_ALLSAT.nc'.format(
+        yy=date, tmpl=(fname_tmpl[2:-3]),sigma=self.conf.processing.filters.zscore.sigma)))
 
     def run(self):
         date = f"{self.start_date}_{self.end_date}"
@@ -263,7 +277,10 @@ class Sat_processer:
                         ds=self.masking(ds, sat_name, day)
                         outname = os.path.join(self.conf.paths.out_dir,"{base}_landMasked_qcheck_zscore{sigma}.nc".format(base=self.conf.filenames.output.format(
                                                                                sat_name=sat_name,day=day),sigma=self.conf.processing.filters.zscore.sigma))
-                        if not os.path.exists(outname):
-                            ds=self.ZScore(ds, outname)
+                        #if not os.path.exists(outname):
+                        #    try:
+                        #        ds=self.ZScore(ds, outname)
+                        #    except:
+                        #        pass
 
             self.merge_sats()

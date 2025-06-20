@@ -8,7 +8,7 @@ sat_preproc:
     type: 'L3'
   paths: &out
     sat: '/data/inputs/METOCEAN/historical/obs/ocean/satellite/CMS/GlobOce/altimetry/L3/sec/{satName}/{year}/{month}/'
-    out_dir: '/work/cmcc/ww3_cst-dev/tools/scatter_waves/output/mdgk_spc'
+    out_dir: '/work/cmcc/ww3_cst-dev/tools/scatter_waves/output/adri_test'
   filenames:
     sat:
       template: 'global_vavh_l3_rt_*{day}*.nc'
@@ -17,10 +17,10 @@ sat_preproc:
     output: '{sat_name}_{day}'
   processing:
     boundingBox:
-      xmin: 42.5
-      xmax: 59
-      ymin: -27.9
-      ymax: -9
+      xmin: 12
+      xmax: 21.5
+      ymin: 36.4
+      ymax: 46.9
     filters:
       quality_check:
          variable_name: False  #qual_alt_1hz_swh_ku  ## Set to False to skip, else set the variable name
@@ -28,7 +28,7 @@ sat_preproc:
       land_masking:
         variable_name: False #'surface_type' ## Set to False to skip, else set the variable name
         value: 0                                          # set the idenfifier for the ocean
-        shapefile: "/work/cmcc/ww3_cst-dev/tools/scatter_waves/data/shp/mdgk_area.shp"
+        shapefile: "/work/cmcc/ww3_cst-dev/tools/scatter_waves/data/shp/adri_mask_simpli.shp"
       zscore:
         sigma: 3 
 
@@ -38,38 +38,39 @@ model_preproc:
    sat:
      path: '{out_dir}/{date}_landMasked_qcheck_zscore{sigma}_ALLSAT.nc'
    models: # for validation of more exps please repeat the code block 'yourExp1' naming it as you prefer
-     mdgk:
+     adri_2:
        type: 'unstr' #available types are ['nemo', 'cf', 'unstr']
-       path: '/work/cmcc/ww3_cst-dev/runs/madagascar_boundSpc/output/ww3.{day}.nc'
+       path: '/work/cmcc/ww3_cst-dev/runs/adri2/20211230/output/ww3.{day}.nc'
        lat: 'latitude'
        lon: 'longitude'
        hs: 'hs'
        time: 'time'
-     mdgkCur:  
+     adri_st6:
        type: 'unstr' #available types are ['nemo', 'cf', 'unstr']
-       path: '/work/cmcc/ww3_cst-dev/runs/madagascar_boundSpc_cur/20230203/runs/output/ww3.{day}.nc'
+       path: '/work/cmcc/ww3_cst-dev/runs/adri_ST6_3/20211231/output/ww3.{day}.nc'
        lat: 'latitude'
        lon: 'longitude'
        hs: 'hs'
        time: 'time'
   filters:
-    max_distance_in_space: 0.04                         # (in degree) it discards data if sat is farther this value
+    max_distance_in_space: 0.01                         # (in degree) it discards data if sat is farther this value
     max_distance_in_time: 1                             # (in hours) it discards data if sat is farther this value
 
 plot:
   title: '{start_date} - {end_date}' #,Cryosat-2,AltiKa,HY-2B,Jason-3,Sentinel-3A,Sentinel-3B [m]' # this is a string in the plot title
   out_dir: *out #'/work/opa/sc33616/work/iride_test/sat/plots'
   coast_resolution: 'i'
-  binning_resolution: 0.1
+  binning_resolution: 0.05
   experiments: # experiments you want to plot
-    mdgk:
+    adri_2:
       series: '{out_dir}/{date}_series.nc'
-    mdgkCur:
-      series: '{out_dir}/{date}_series.nc'      
+    adri_st6:
+      series: '{out_dir}/{date}_series.nc'
   filters:
     ntimes: 3 # mask data if satellite hs is > of ntimes * model hs
     min: 0.15 # discard Hs< min
     max: 20   # discard Hs> max
+    unbias: False
 
 
 

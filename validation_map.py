@@ -10,8 +10,8 @@ from mpl_toolkits.basemap import Basemap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 def coords2bins(ds_all,x,y,step):
-    y_min, y_max = np.nanmin(ds_all.latitude.values), np.nanmax(ds_all.latitude.values)
-    x_min, x_max = np.nanmin(ds_all.longitude.values), np.nanmax(ds_all.longitude.values)
+    y_min, y_max = np.nanmin(ds_all.latitude.values)-step, np.nanmax(ds_all.latitude.values)+step
+    x_min, x_max = np.nanmin(ds_all.longitude.values)-step, np.nanmax(ds_all.longitude.values)+step
     lon_bins = np.arange(x[np.argmin(np.abs(x - x_min))], x[np.argmin(np.abs(x - x_max))] + step, step)
     lat_bins = np.arange(y[np.argmin(np.abs(y - y_min))], y[np.argmin(np.abs(y - y_max))] + step, step)
     return lon_bins,lat_bins
@@ -24,6 +24,7 @@ def targetGrid(step):
 def get2Dbins(data,step):
     print(f'target grid definition at {step} of resolution')
     x,y=targetGrid(step)
+    data = data.sortby('latitude')
     print('2-dimensional binning')
     lon_bins,lat_bins=coords2bins(data,x,y, step)
     grouped_lon = data.groupby_bins('longitude', lon_bins)
@@ -31,6 +32,7 @@ def get2Dbins(data,step):
     lon_=[i.mid for i in grouped_lon.groups.keys()]
     buffer=[]
     print ('lat binning')
+
     for i,lon_group in enumerate(grouped_lon._iter_grouped()):
         print (len(list(grouped_lon._iter_grouped()))-i)
         lat_group=lon_group.groupby_bins('latitude', lat_bins)
@@ -46,6 +48,7 @@ def get2Dbins(data,step):
     return out.transpose()
 
 def plotMap(ds, variable,coast_resolution, outfile):
+    print ('Plotting map')
     fig = plt.figure()
     fig.set_size_inches(8, 8)
     m = Basemap(llcrnrlon=ds.longitude.min()-0.25, llcrnrlat=ds.latitude.min()-0.25,
