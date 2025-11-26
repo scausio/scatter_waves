@@ -24,13 +24,13 @@ def targetGrid(step):
     return x,y
 
 def get2Dbins_fast(data, step):
-    """Versão otimizada usando pandas groupby - muito mais rápido para grandes volumes"""
+    """Optimazing version using pandas groupby instead of xarray groupby"""
     print(f'target grid definition at {step} of resolution')
     x, y = targetGrid(step)
     print('2-dimensional binning (optimized)')
     lon_bins, lat_bins = coords2bins(data, x, y, step)
     
-    # Converter para DataFrame - mais eficiente para groupby
+    # Converting for DataFrame - more efficient for groupby
     print('Converting to DataFrame...')
     df = pd.DataFrame({
         'lon': data.longitude.values,
@@ -40,15 +40,15 @@ def get2Dbins_fast(data, step):
         'time': data.time.values
     })
     
-    # Criar bins usando pd.cut - vetorizado e rápido
+    # Creating bins using pd.cut - vectorized and fast
     print('Creating bins...')
     df['lon_bin'] = pd.cut(df['lon'], bins=lon_bins, labels=False, include_lowest=True)
     df['lat_bin'] = pd.cut(df['lat'], bins=lat_bins, labels=False, include_lowest=True)
     
-    # Remover NaNs nos bins
+    # Removing NaNs in bins
     df = df.dropna(subset=['lon_bin', 'lat_bin'])
     
-    # Agrupar e calcular métricas - uma operação vetorizada
+    # Grouping and calculating metrics using vectorized operation
     print('Computing metrics (vectorized)...')
     grouped = df.groupby(['lon_bin', 'lat_bin'])
     
@@ -61,33 +61,33 @@ def get2Dbins_fast(data, step):
     results_dict['model_hs'] = grouped['model_hs'].mean().values
     results_dict['sat_hs'] = grouped['hs'].mean().values
     
-    # Obter coordenadas dos bins
+    # Getting bin coordinates
     bin_coords = np.array(list(grouped.groups.keys()))
     lon_indices = bin_coords[:, 0].astype(int)
     lat_indices = bin_coords[:, 1].astype(int)
     
-    # Calcular centros dos bins
+    # Calculating bin centers
     lon_centers = np.array([(lon_bins[i] + lon_bins[i+1])/2 for i in lon_indices])
     lat_centers = np.array([(lat_bins[i] + lat_bins[i+1])/2 for i in lat_indices])
     
-    # Criar grid 2D
+    # Creating 2D grid
     print('Creating output grid...')
     n_lon = len(lon_bins) - 1
     n_lat = len(lat_bins) - 1
     
-    # Inicializar arrays 2D com NaN
+    # Initializing 2D arrays with NaN
     output_arrays = {key: np.full((n_lat, n_lon), np.nan) for key in results_dict.keys()}
     lon_grid = np.full((n_lat, n_lon), np.nan)
     lat_grid = np.full((n_lat, n_lon), np.nan)
     
-    # Preencher valores
+    # Filling values
     for idx, (lon_idx, lat_idx) in enumerate(zip(lon_indices, lat_indices)):
         for key in results_dict.keys():
             output_arrays[key][lat_idx, lon_idx] = results_dict[key][idx]
         lon_grid[lat_idx, lon_idx] = lon_centers[idx]
         lat_grid[lat_idx, lon_idx] = lat_centers[idx]
     
-    # Criar Dataset xarray
+    # Creating xarray Dataset at the end...
     print('Creating xarray Dataset...')
     ds = xr.Dataset(
         data_vars={key: (['latitude', 'longitude'], output_arrays[key]) for key in results_dict.keys()},
@@ -100,7 +100,7 @@ def get2Dbins_fast(data, step):
     return ds
 
 def get2Dbins(data, step):
-    """Wrapper que mantém compatibilidade"""
+    """Wrapper to keep compatibility with previous function"""
     return get2Dbins_fast(data, step)
 
 def plotMap(ds, variable,coast_resolution, outfile):
@@ -152,10 +152,6 @@ def plotMap(ds, variable,coast_resolution, outfile):
     plt.close()
 
 
-
-
-# plt.show()
-
 def main(conf_path, start_date, end_date):
 
     conf = getConfigurationByID(conf_path, 'plot')
@@ -171,7 +167,7 @@ def main(conf_path, start_date, end_date):
             print(f"Series file not found for '{dataset}': {series_path}. Skipping map plot.")
             continue
         
-        # Usar chunks para lazy loading - evita carregar tudo na memória
+        # Using chunks for lazy loading - avoids loading everything into memory
         print('Loading data with chunking...')
         ds_all = xr.open_dataset(series_path, chunks={'obs': 100000})
         
@@ -192,7 +188,7 @@ def main(conf_path, start_date, end_date):
 
         print(np.sum(np.isnan(sat_hs)))
         
-        # Carregar em memória apenas os dados necessários
+        # Load into memory only the necessary data
         print('Loading required data into memory...')
         ds_all = ds_all.compute()
 
