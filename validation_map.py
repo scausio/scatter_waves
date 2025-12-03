@@ -295,16 +295,16 @@ def plotMap(ds: xr.Dataset, variable: str, coast_resolution: str,
     plt.title(title, loc='left', fontsize=14, fontweight='bold', pad=15)
 
     # Plot data
-    lon_grid, lat_grid = np.meshgrid(ds.longitude, ds.latitude)
+    lon_edges = get_cell_edges(ds.longitude.values)
+    lat_edges = get_cell_edges(ds.latitude.values)
+    lon_grid, lat_grid = np.meshgrid(lon_edges, lat_edges)
     x, y = m(lon_grid, lat_grid)
 
     im = m.pcolormesh(x, y, var_data.T,
                       cmap=config['cmap'],
                       vmin=config['vmin'],
                       vmax=config['vmax'],
-                      shading='auto',
-                      alpha=0.8)
-
+                      alpha=0.8)  # ← No shading
     # Add colorbar
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="3%", pad=0.15)
