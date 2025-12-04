@@ -31,6 +31,7 @@ from sklearn.metrics import r2_score
 import seaborn as sns
 from matplotlib.patches import Rectangle
 import matplotlib.patches as mpatches
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib
 matplotlib.use('Agg')
 from stats import BIAS, RMSE, MAE, ScatterIndex, correlation, skill_score, symmetric_slope
@@ -158,7 +159,7 @@ def create_qq_plot(ax: plt.Axes, model_data: np.ndarray,
     min_val = min(np.min(sat_quantiles), np.min(model_quantiles))
     max_val = max(np.max(sat_quantiles), np.max(model_quantiles))
     ax.plot([min_val, max_val], [min_val, max_val], 'r--', 
-            linewidth=2, label='Best fit')
+            linewidth=2, label='1:1')
     
     ax.set_xlabel('Satellite Quantiles [m]', fontsize=10, fontweight='bold')
     ax.set_ylabel('Model Quantiles [m]', fontsize=10, fontweight='bold')
@@ -364,12 +365,14 @@ def generate_percentile_scatter(model_data: np.ndarray, satellite_data: np.ndarr
                                  s=60, edgecolors='white', linewidth=0.3)
     
     # Colorbar
-    cb = plt.colorbar(scatter, ax=ax_main, pad=0.02, shrink=0.8)
-    cb.set_label('Density', fontsize=11, labelpad=10, fontweight='bold')
-    
+    divider = make_axes_locatable(ax_main)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = plt.colorbar(scatter, cax=cax)
+    cb.set_label('Density', fontsize=12, labelpad=10, fontweight='bold')
+
     # 1:1 line (perfect agreement)
     ax_main.plot([plot_min, plot_max], [plot_min, plot_max], 'r--', 
-                linewidth=2.5, label='1:1 (Best fit)', alpha=0.9, zorder=5)
+                linewidth=2.5, label='1:1', alpha=0.9, zorder=5)
     
     # Regression line
     slope, intercept, r_value, p_val, std_err = stats.linregress(sat_perc, model_perc)
@@ -456,18 +459,18 @@ def generate_percentile_scatter(model_data: np.ndarray, satellite_data: np.ndarr
     stats_data.extend([
         ['', '', ''],
         ['--- Correlation Metrics ---', '', ''],
-        ['Pearson ρ', f"{stats_dict['correlation']:.4f}", 'Correlation coefficient'],
-        ['R²', f"{stats_dict['r2']:.4f}", 'Coefficient of determination'],
-        ['p-value', f"{stats_dict['p_value']:.4e}", 'Statistical significance'],
+        ['Pearson ρ', f"{stats_dict['correlation']:.2f}", 'Correlation coefficient'],
+        ['R²', f"{stats_dict['r2']:.2f}", 'Coefficient of determination'],
+        ['p-value', f"{stats_dict['p_value']:.3e}", 'Statistical significance'],
     ])
     
     # Error metrics
     stats_data.extend([
         ['', '', ''],
         ['--- Error Metrics ---', '', ''],
-        ['BIAS (m)', f"{stats_dict['bias']:.4f}", 'Mean systematic error'],
-        ['RMSE (m)', f"{stats_dict['rmse']:.4f}", 'Root Mean Square Error'],
-        ['MAE (m)', f"{stats_dict['mae']:.4f}", 'Mean Absolute Error'],
+        ['BIAS (m)', f"{stats_dict['bias']:.2f}", 'Mean systematic error'],
+        ['RMSE (m)', f"{stats_dict['rmse']:.2f}", 'Root Mean Square Error'],
+        ['MAE (m)', f"{stats_dict['mae']:.2f}", 'Mean Absolute Error'],
         ['NBIAS (%)', f"{stats_dict['normalized_bias']:.2f}", 'Normalized bias'],
         ['NRMSE (%)', f"{stats_dict['normalized_rmse']:.2f}", 'Normalized RMSE'],
         ['SI (%)', f"{stats_dict['scatter_index']:.2f}", 'Scatter Index'],
@@ -637,12 +640,14 @@ def scatter_waves(model_data: np.ndarray, satellite_data: np.ndarray,
                                  s=50, edgecolors='white', linewidth=0.3)
     
     # Colorbar
-    cb = plt.colorbar(scatter, ax=ax_main, pad=0.02, shrink=0.8)
-    cb.set_label('Density', fontsize=11, labelpad=10, fontweight='bold')
+    divider = make_axes_locatable(ax_main)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = plt.colorbar(scatter, cax=cax)
+    cb.set_label('Density', fontsize=12, labelpad=10, fontweight='bold')
     
     # 1:1 line (perfect agreement)
     ax_main.plot([plot_min, plot_max], [plot_min, plot_max], 'r--', 
-                linewidth=2.5, label='1:1 (Best fit)', alpha=0.9, zorder=5)
+                linewidth=2.5, label='1:1', alpha=0.9, zorder=5)
     
     # Regression line
     slope, intercept, r_value, p_val, std_err = stats.linregress(sat_clean, model_clean)
@@ -921,23 +926,24 @@ def simple_scatter_plot(model_data: np.ndarray, satellite_data: np.ndarray,
                             s=60, edgecolors='white', linewidth=0.3)
     
     # Colorbar
-    cb = plt.colorbar(scatter, ax=ax, pad=0.02, shrink=0.9)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = plt.colorbar(scatter, cax=cax)
     cb.set_label('Density', fontsize=12, labelpad=10, fontweight='bold')
-    
     # 1:1 line (perfect agreement)
     ax.plot([plot_min, plot_max], [plot_min, plot_max], 'r--', 
-           linewidth=2.5, label='1:1 (Best fit)', alpha=0.9, zorder=5)
+           linewidth=2.5, label='1:1', alpha=0.9, zorder=5)
     
     # Regression line
     slope, intercept, r_value, p_val, std_err = stats.linregress(sat_clean, model_clean)
     line_x = np.array([plot_min, plot_max])
     line_y = slope * line_x + intercept
     ax.plot(line_x, line_y, color='#FF6B35', linewidth=2.5, alpha=0.9,
-           label=f'Regression (y={slope:.2f}x+{intercept:.2f})', zorder=5)
+           label=f'y={slope:.2f}x+{intercept:.2f}', zorder=5)
     
     # Styling
-    ax.set_xlabel(f'{sat_name} SWH [m]', fontsize=16, fontweight='bold')
-    ax.set_ylabel(f'{model_name} SWH [m]', fontsize=16, fontweight='bold')
+    ax.set_xlabel(f'{sat_name}', fontsize=16, fontweight='bold')
+    ax.set_ylabel(f'{model_name}', fontsize=16, fontweight='bold')
     ax.set_xlim(plot_min, plot_max)
     ax.set_ylim(plot_min, plot_max)
     ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.7)
@@ -952,10 +958,10 @@ def simple_scatter_plot(model_data: np.ndarray, satellite_data: np.ndarray,
     
     # Add statistics text box
     stats_text = f'N = {n_points:,}\n'
-    stats_text += f'ρ = {corr:.3f}\n'
-    stats_text += f'RMSE = {rmse:.3f} m\n'
-    stats_text += f'BIAS = {bias:.3f} m\n'
-    stats_text += f'MAE = {mae:.3f} m'
+    stats_text += f'ρ = {corr:.2f}\n'
+    stats_text += f'RMSE = {rmse:.2f} m\n'
+    stats_text += f'BIAS = {bias:.2f} m\n'
+    stats_text += f'MAE = {mae:.2f} m'
     
     # Position text box in upper right
     ax.text(0.97, 0.03, stats_text,

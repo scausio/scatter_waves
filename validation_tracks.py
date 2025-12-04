@@ -236,7 +236,7 @@ def plotTracks(ds: xr.Dataset, variable: str, coast_resolution: str,
                             alpha=0.7,
                             edgecolors='white',
                             linewidth=0.5,
-                            zorder=5)
+                            zorder=10)
 
             # Add colorbar (only on first iteration)
             if i == 0:
@@ -288,7 +288,7 @@ def plotTracks(ds: xr.Dataset, variable: str, coast_resolution: str,
                         alpha=0.7,
                         edgecolors='white',
                         linewidth=0.5,
-                        zorder=5)
+                        zorder=10)
 
         # Add colorbar
         divider = make_axes_locatable(ax)
