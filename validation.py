@@ -394,8 +394,8 @@ def generate_percentile_scatter(model_data: np.ndarray, satellite_data: np.ndarr
     ax_main.axhline(y=threshold, color='green', linestyle=':', linewidth=2, alpha=0.7)
     
     # Styling
-    ax_main.set_xlabel(f'{sat_name} SWH [m]', fontsize=14, fontweight='bold')
-    ax_main.set_ylabel(f'{model_name} SWH [m]', fontsize=14, fontweight='bold')
+    ax_main.set_xlabel(f'{sat_name}', fontsize=14, fontweight='bold')
+    ax_main.set_ylabel(f'{model_name}', fontsize=14, fontweight='bold')
     ax_main.set_xlim(plot_min, plot_max)
     ax_main.set_ylim(plot_min, plot_max)
     ax_main.grid(True, alpha=0.3, linestyle='-', linewidth=0.7)
@@ -664,8 +664,8 @@ def scatter_waves(model_data: np.ndarray, satellite_data: np.ndarray,
                         alpha=0.15, color='orange', label=f'±RMSE ({rmse_val:.3f}m)', zorder=1)
     
     # Styling
-    ax_main.set_xlabel(f'{sat_name} SWH [m]', fontsize=14, fontweight='bold')
-    ax_main.set_ylabel(f'{model_name} SWH [m]', fontsize=14, fontweight='bold')
+    ax_main.set_xlabel(f'{sat_name}', fontsize=14, fontweight='bold')
+    ax_main.set_ylabel(f'{model_name}', fontsize=14, fontweight='bold')
     ax_main.set_xlim(plot_min, plot_max)
     ax_main.set_ylim(plot_min, plot_max)
     ax_main.grid(True, alpha=0.3, linestyle='-', linewidth=0.7)
@@ -1152,8 +1152,8 @@ def main(conf_path: str, start_date: str, end_date: str) -> None:
         try:
             fig = scatter_waves(
                 mod2plot, sat2plot,
-                model_name=f"{dataset} SWH [m]",
-                sat_name="Satellite SWH [m]",
+                model_name=f"{dataset}",
+                sat_name="Satellite",
                 save_path=outName,
                 percentile_thresholds=percentile_thresholds,
                 include_qq_plot=True,
@@ -1167,8 +1167,8 @@ def main(conf_path: str, start_date: str, end_date: str) -> None:
                 simple_outName = outName.replace(f'scatter_{dataset}', f'scatter_{dataset}_simple')
                 fig_simple = simple_scatter_plot(
                     mod2plot, sat2plot,
-                    model_name=f"{dataset} SWH [m]",
-                    sat_name="Satellite SWH [m]",
+                    model_name=f"{dataset}",
+                    sat_name="Satellite",
                     save_path=simple_outName,
                     dpi=dpi)
                 plt.close(fig_simple)
@@ -1184,8 +1184,8 @@ def main(conf_path: str, start_date: str, end_date: str) -> None:
                         fig_perc = generate_percentile_scatter(
                             mod2plot, sat2plot,
                             percentile=perc,
-                            model_name=f"{dataset} SWH [m]",
-                            sat_name="Satellite SWH [m]",
+                            model_name=f"{dataset}",
+                            sat_name="Satellite",
                             save_path=outName.replace(f'scatter_{dataset}', f'scatter_{dataset}_P{perc}'),
                             dpi=dpi)
                         plt.close(fig_perc)
