@@ -22,9 +22,15 @@ def load_pairs(conf, start_date, end_date, verbose=True):
       unbias   : remove the mean bias of each model (model - <model> + <sat>)
     """
     date = f'{start_date}_{end_date}'
-    experiments = list(conf.experiments)
-    paths = {name: conf.experiments[name].series.format(
-        out_dir=conf.out_dir.out_dir, date=date, experiment=name) for name in experiments}
+    if conf.get('experiments'):
+        experiments = list(conf.experiments)
+        paths = {name: conf.experiments[name].series.format(
+            out_dir=conf.out_dir.out_dir, date=date, experiment=name) for name in experiments}
+    else:  # all the experiments of the series file
+        path = conf.get('series', '{out_dir}/{date}_series.nc').format(out_dir=conf.out_dir.out_dir, date=date)
+        with xr.open_dataset(path) as ds:
+            experiments = [str(m) for m in ds.model.values]
+        paths = {name: path for name in experiments}
 
     columns, base = [], None
     for path in dict.fromkeys(paths.values()):

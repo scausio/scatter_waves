@@ -1029,33 +1029,91 @@ def taylor_diagram(table: pd.DataFrame, save_path: str, title: str = '') -> None
     plt.close(fig)
 
 
-def plot_binned_errors(pairs, save_path: str, bin_width: float = 0.5, title: str = '') -> pd.DataFrame:
-    """Bias and RMSE as a function of observed Hs (conditional on observations)."""
+def plot_binned_errors(pairs, save_path: str, bin_width: float = 0.5, title: str = '',
+                       variable: str = 'hs', edges=None, xlabel: str = 'Observed Hs [m]') -> pd.DataFrame:
+    """Bias and RMSE by classes of `variable` (observed Hs by default)."""
     from stats import grouped_metrics
+    values = pairs[variable].values
     obs = pairs.hs.values
-    edges = np.arange(0, np.ceil(obs.max() / bin_width) * bin_width + bin_width, bin_width)
-    groups = np.clip(np.searchsorted(edges, obs, side='right') - 1, 0, len(edges) - 2)
-    centers = (edges[:-1] + edges[1:]) / 2
+    if edges is None:
+        edges = np.arange(0, np.ceil(np.nanmax(values) / bin_width) * bin_width + bin_width, bin_width)
+    edges = np.asarray(edges, dtype='f8')
+    groups = np.clip(np.searchsorted(edges, values, side='right') - 1, 0, len(edges) - 2)
+    finite_edges = np.where(np.isfinite(edges), edges, edges[np.isfinite(edges)].max() * 1.5)
+    centers = (finite_edges[:-1] + finite_edges[1:]) / 2
+    labels = [f'{lo:g}-{hi:g}' for lo, hi in zip(edges[:-1], edges[1:])]
+    pos = np.arange(len(centers)) if variable != 'hs' else centers
     fig, (ax_b, ax_r, ax_n) = plt.subplots(3, 1, figsize=(10, 11), sharex=True,
                                            gridspec_kw={'height_ratios': [2, 2, 1]})
     rows = []
     for i, model in enumerate(pairs.model.values):
         res = grouped_metrics(pairs.model_hs.sel(model=model).values, obs, groups, len(centers), min_obs=5)
         color = COLORS[i % len(COLORS)]
-        ax_b.plot(centers, res['bias'], 'o-', color=color, label=model)
-        ax_r.plot(centers, res['rmse'], 'o-', color=color, label=model)
-        rows.append(pd.DataFrame(res, index=pd.Index(centers, name='hs_bin_center')).assign(model=model))
-    ax_n.bar(centers, res['nobs'], width=bin_width * 0.9, color='gray')
+        ax_b.plot(pos, res['bias'], 'o-', color=color, label=model)
+        ax_r.plot(pos, res['rmse'], 'o-', color=color, label=model)
+        rows.append(pd.DataFrame(res, index=pd.Index(labels, name=f'{variable}_class')).assign(model=model))
+    ax_n.bar(pos, res['nobs'], width=(bin_width if variable == 'hs' else 1) * 0.9, color='gray')
+    if variable != 'hs':
+        ax_n.set_xticks(pos)
+        ax_n.set_xticklabels(labels)
     ax_b.axhline(0, color='k', lw=1)
     for ax, label in ((ax_b, 'Bias [m]'), (ax_r, 'RMSE [m]'), (ax_n, 'N pairs')):
         ax.set_ylabel(label, fontsize=12)
         ax.grid(True, linestyle='--', alpha=0.5)
-    ax_b.legend()
-    ax_n.set_xlabel('Observed Hs [m]', fontsize=12)
-    ax_b.set_title(f'Errors by observed Hs class {title}', fontsize=14, fontweight='bold')
+    ax_b.legend(fontsize=9)
+    ax_n.set_xlabel(xlabel, fontsize=12)
+    ax_b.set_title(f'Errors by {xlabel.split(" [")[0].lower()} class {title}', fontsize=14, fontweight='bold')
     fig.savefig(save_path, dpi=200, bbox_inches='tight', facecolor='white')
     plt.close(fig)
     return pd.concat(rows)
+
+
+def plot_lead_skill(table: pd.DataFrame, save_path: str, title: str = '') -> Optional[pd.DataFrame]:
+    """Metrics against forecast lead for experiments named <name>_+<lead>h;
+    the other experiments (e.g. the reference simulation) are drawn as horizontal lines."""
+    import re
+    overall = table.xs('ALL', level='satellite')
+    leads, refs = {}, []
+    for model in overall.index:
+        match = re.match(r'(.+)_\+(\d+)h$', model)
+        if match:
+            leads.setdefault(match.group(1), []).append((int(match.group(2)), model))
+        else:
+            refs.append(model)
+    if not leads:
+        return None
+    panels = [('bias', 'Bias [m]'), ('rmse', 'RMSE [m]'), ('si', 'Scatter index'), ('correlation', 'Correlation')]
+    fig, axes = plt.subplots(2, 2, figsize=(14, 9), sharex=True)
+    rows = []
+    for i, (name, items) in enumerate(leads.items()):
+        items.sort()
+        hours = np.array([h for h, _ in items])
+        for ax, (key, label) in zip(axes.ravel(), panels):
+            ax.plot(hours / 24, [overall.loc[m, key] for _, m in items], 'o-', lw=2,
+                    color=COLORS[i % len(COLORS)], label=name)
+        rows += [{'experiment': name, 'lead_h': h, **overall.loc[m].to_dict()} for h, m in items]
+    for j, ref in enumerate(refs):
+        for ax, (key, _) in zip(axes.ravel(), panels):
+            ax.axhline(overall.loc[ref, key], color='k', ls=['--', ':', '-.'][j % 3], lw=1.5, label=ref)
+    for ax, (key, label) in zip(axes.ravel(), panels):
+        ax.set_ylabel(label, fontsize=12)
+        ax.grid(True, linestyle='--', alpha=0.5)
+        if key == 'bias':
+            ax.axhline(0, color='gray', lw=0.8)
+        lo, hi = ax.get_ylim()  # minimum span: differences of 1e-5 must not look large
+        span = {'bias': 0.05, 'rmse': 0.05, 'si': 0.05, 'correlation': 0.05}[key]
+        if hi - lo < span:
+            mid = (hi + lo) / 2
+            ax.set_ylim(mid - span / 2, mid + span / 2)
+    for ax in axes[1]:
+        ax.set_xlabel('Forecast lead [days]', fontsize=12)
+    axes[0, 0].legend(fontsize=9)
+    n = int(overall['n'].iloc[0])
+    fig.suptitle(f'Skill against satellite Hs vs forecast lead ({n} pairs) {title}', fontsize=14, fontweight='bold')
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return pd.DataFrame(rows)
 
 
 def main(conf_path: str, start_date: str, end_date: str) -> None:
@@ -1100,6 +1158,14 @@ def main(conf_path: str, start_date: str, end_date: str) -> None:
     taylor_diagram(table, os.path.join(outdir, f'taylor_{date}.jpeg'), title)
     plot_binned_errors(pairs, os.path.join(outdir, f'errors_by_hs_{date}.jpeg'), title=title).to_csv(
         os.path.join(outdir, f'errors_by_hs_{date}.csv'), float_format='%.4f')
+    if 'distance_to_coast' in pairs:
+        plot_binned_errors(pairs, os.path.join(outdir, f'errors_by_coast_distance_{date}.jpeg'), title=title,
+                           variable='distance_to_coast', edges=[0, 5, 10, 20, 30, 50, 100, np.inf],
+                           xlabel='Distance to coast [km]').to_csv(
+            os.path.join(outdir, f'errors_by_coast_distance_{date}.csv'), float_format='%.4f')
+    lead = plot_lead_skill(table, os.path.join(outdir, f'skill_vs_lead_{date}.jpeg'), title)
+    if lead is not None:
+        lead.to_csv(os.path.join(outdir, f'skill_vs_lead_{date}.csv'), index=False, float_format='%.4f')
     if 'unbiased' in pairs.attrs:
         print(pairs.attrs['unbiased'])
     print(f"\nOutput directory: {outdir}")

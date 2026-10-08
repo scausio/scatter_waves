@@ -55,6 +55,57 @@ all experiments are valid, within `filters.min/max`, and not flagged by
 `filters.ntimes` (`|model - sat| > ntimes * model`). `filters.unbias: True`
 removes the mean bias of each experiment.
 
+## Other data sources
+
+**Satellites from CMEMS sparse tables** (e.g. the ESA CCI Sea State product
+`cci_obs-wave_glo_phy-swh_my_l3_PT1S-i`, downloaded with `copernicusmarine subset
+--file-format parquet`):
+
+```yaml
+sat_preproc:
+  sat_names: ['jason-1', 'envisat']     # platform_id values to keep
+  sat_specifics: {type: 'cmems_parquet', hs: 'swh_adjusted'}
+  paths: {sat: '/path/cci_med_2007*.parquet', out_dir: ...}
+  processing:
+    filters:
+      min_distance_to_coast_km: 0       # uses the distance_to_coast of the product
+```
+
+`distance_to_coast` is kept in the series file and the scatter step adds the
+errors by distance-to-coast class.
+
+**Model output as one dataset** (`type: series`, zarr or netCDF with hs(time, node)),
+e.g. the WaveGraph test set, and **forecasts** (`type: forecast`, files
+hs(init_time, pred_step, node)): one experiment per lead, `<name>_+<lead>h`,
+compared with the forecast issued at the latest init with lead in
+(lead - init spacing, lead].
+
+```yaml
+models:
+  testset:
+    type: series
+    path: /path/processed/fields/swh.zarr
+    hs: swh
+    time: time
+    lat: lat
+    lon: lon
+    mesh: /path/mesh.gr3                # triangles for linear interpolation
+  wavegraph:
+    type: forecast
+    path: /path/predictions/test_set/wav_*.nc
+    hs: swh
+    coords: /path/processed/fields/swh.zarr   # float lat/lon of the nodes
+    lat: lat
+    lon: lon
+    mesh: /path/mesh.gr3
+    step_hours: 3
+    leads: [24, 72, 120, 240]
+```
+
+Without `plot.experiments` all the experiments of `plot.series` (default
+`{out_dir}/{date}_series.nc`) are validated on their common sample; with forecasts
+the scatter step also plots the skill against forecast lead.
+
 ## Configuration (plot section)
 
 ```yaml

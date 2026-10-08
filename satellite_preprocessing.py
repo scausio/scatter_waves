@@ -73,6 +73,43 @@ def _process_sat_day(args):
     return sat_name, day, len(files), {k: v[in_day] for k, v in out.items()}
 
 
+def read_cmems_parquet(conf, days):
+    """
+    CMEMS 'long' tables (copernicusmarine subset of sparse L3 datasets, e.g. the
+    ESA CCI Sea State product): one row per variable with platform_id, time,
+    longitude, latitude, value, value_qc. paths.sat is a glob of .parquet files.
+    """
+    import pandas as pd
+    spec = conf.sat_specifics
+    bb = conf.processing.boundingBox
+    files = sorted(glob(conf.paths.sat))
+    if not files:
+        raise FileNotFoundError(conf.paths.sat)
+    columns = ['variable', 'platform_id', 'time', 'longitude', 'latitude', 'value', 'value_qc']
+    df = pd.concat([pd.read_parquet(f, columns=columns) for f in files], ignore_index=True)
+    df = df[df['value_qc'] == 0]
+    wide = df.pivot_table(index=['platform_id', 'time', 'longitude', 'latitude'],
+                          columns='variable', values='value', aggfunc='first').reset_index()
+    times = pd.to_datetime(wide['time'], utc=True).dt.tz_localize(None).values.astype('datetime64[ns]')
+    day0 = np.datetime64(f'{days[0][:4]}-{days[0][4:6]}-{days[0][6:]}', 'ns')
+    day1 = np.datetime64(f'{days[-1][:4]}-{days[-1][4:6]}-{days[-1][6:]}', 'ns') + np.timedelta64(1, 'D')
+    lon = wide['longitude'].values.astype('f8')
+    lon[lon > 180] -= 360
+    lat = wide['latitude'].values.astype('f8')
+    hs = wide[spec.hs].values.astype('f8')
+    keep = ((times >= day0) & (times < day1) & np.isfinite(hs) &
+            (lat > bb.ymin) & (lat < bb.ymax) & (lon > bb.xmin) & (lon < bb.xmax))
+    sat_names = conf.get('sat_names')
+    if sat_names:
+        keep &= wide['platform_id'].isin(list(sat_names)).values
+    out = {'time': times[keep], 'longitude': lon[keep], 'latitude': lat[keep], 'hs': hs[keep],
+           'satellite': np.asarray(wide['platform_id'], dtype=str)[keep]}
+    if 'distance_to_coast' in wide:
+        out['distance_to_coast'] = wide['distance_to_coast'].values[keep] / 1000.  # m -> km
+    print(f'read {len(files)} parquet files: {keep.sum()} obs in box and period')
+    return out
+
+
 def ocean_mask(shapefile, lon, lat):
     """True where the point falls inside the (sea) polygons of the shapefile."""
     import geopandas as gpd
@@ -108,7 +145,7 @@ class Sat_processer:
         """Settings that determine the content of the output file."""
         c = self.conf
         return json.dumps({'sat_names': list(c.sat_names), 'paths': c.paths.sat,
-                           'template': c.filenames.sat.template,
+                           'template': (c.get('filenames') or {}).get('sat', {}).get('template'),
                            'specifics': dict(c.sat_specifics),
                            'bbox': dict(c.processing.boundingBox),
                            'filters': munch_to_dict(c.processing.filters),
@@ -121,6 +158,8 @@ class Sat_processer:
             return ds.attrs.get('preproc_config') == self.fingerprint()
 
     def extract(self):
+        if str(self.conf.sat_specifics.get('type', '')).lower() == 'cmems_parquet':
+            return read_cmems_parquet(self.conf, self.days)
         tasks = [(self.conf, s, d) for s in self.conf.sat_names for d in self.days]
         t0 = time.time()
         if self.workers > 1:
@@ -147,7 +186,10 @@ class Sat_processer:
         filters = self.conf.processing.filters
         n0 = len(data['hs'])
         keep = np.ones(n0, bool)
-        if filters.land_masking.shapefile:
+        if filters.get('min_distance_to_coast_km') and 'distance_to_coast' in data:
+            keep &= data['distance_to_coast'] >= float(filters.min_distance_to_coast_km)
+            print(f'distance to coast >= {filters.min_distance_to_coast_km} km: {keep.sum()} of {n0} obs kept')
+        if filters.get('land_masking') and filters.land_masking.get('shapefile'):
             keep &= ocean_mask(filters.land_masking.shapefile, data['longitude'], data['latitude'])
             print(f'land mask: {n0 - keep.sum()} of {n0} obs removed')
         sigma = filters.zscore.sigma
@@ -162,7 +204,8 @@ class Sat_processer:
         ds = xr.Dataset(
             {'hs': ('obs', data['hs'][order].astype('f4'),
                     {'units': 'm', 'long_name': 'satellite significant wave height'}),
-             'satellite': ('obs', data['satellite'][order].astype(str))},
+             'satellite': ('obs', data['satellite'][order].astype(str)),
+             **{k: ('obs', data[k][order]) for k in ('distance_to_coast',) if k in data}},
             coords={'time': ('obs', data['time'][order]),
                     'longitude': ('obs', data['longitude'][order]),
                     'latitude': ('obs', data['latitude'][order])})
