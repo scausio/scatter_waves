@@ -30,7 +30,7 @@ sat_preproc:
         value: 0                                          # set the idenfifier for the ocean
         shapefile: "/work/cmcc/ww3_cst-dev/tools/scatter_waves/data/shp/adri_mask_simpli.shp"
       zscore:
-        sigma: 3 
+        sigma: 3  # global z-score on all missions; False to skip. Low values can remove real storm peaks
 
 model_preproc:
   out_dir: *out 
@@ -52,25 +52,31 @@ model_preproc:
        lon: 'longitude'
        hs: 'hs'
        time: 'time'
+  interpolation:
+    space: 'linear'   # 'nearest': nearest node within max_distance_in_space; 'linear': barycentric on mesh triangles (unstr only)
+    time: 'linear'    # 'nearest': nearest output within max_distance_in_time; 'linear': between the two bracketing outputs
   filters:
-    max_distance_in_space: 0.01                         # (in degree) it discards data if sat is farther this value
-    max_distance_in_time: 1                             # (in hours) it discards data if sat is farther this value
+    max_distance_in_space: 0.01                         # (in degree) used by space: 'nearest'
+    max_distance_in_time: 1                             # (in hours) nearest: max distance; linear: outputs at most 2x this apart
 
 plot:
   title: '{start_date} - {end_date}' #,Cryosat-2,AltiKa,HY-2B,Jason-3,Sentinel-3A,Sentinel-3B [m]' # this is a string in the plot title
   out_dir: *out #'/work/opa/sc33616/work/iride_test/sat/plots'
   coast_resolution: 'i'
   binning_resolution: 0.05
+  min_obs_per_cell: 10      # map cells with fewer pairs are masked
+  timeseries_freq: 'D'      # aggregation of the time series: 'D', 'W', 'MS', ...
+  daily_tracks: False       # also save one track map per day
   experiments: # experiments you want to plot
     adri_2:
       series: '{out_dir}/{date}_series.nc'
     adri_st6:
       series: '{out_dir}/{date}_series.nc'
   filters:
-    ntimes: 3 # mask data if satellite hs is > of ntimes * model hs
+    ntimes: 3 # drop pairs where |model - sat| > ntimes * model (i.e. sat > (ntimes+1) * model)
     min: 0.15 # discard Hs< min
     max: 20   # discard Hs> max
-    unbias: False
+    unbias: False  # True: remove the mean bias of each model before computing statistics
     percentile_thresholds: [75, 90, 95]  # 
 
 

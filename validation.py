@@ -24,21 +24,17 @@ Usage Example
 python validation.py -c conf.yaml
 """
 
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy import stats
-from sklearn.metrics import r2_score
-import seaborn as sns
-from matplotlib.patches import Rectangle
-import matplotlib.patches as mpatches
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib
 matplotlib.use('Agg')
-from stats import BIAS, RMSE, MAE, ScatterIndex, correlation, skill_score, symmetric_slope
-import xarray as xr
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy import stats
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from stats import BIAS, RMSE, MAE, ScatterIndex, correlation, skill_score, symmetric_slope, summary
 import os
-from scipy.stats import linregress, pearsonr, gaussian_kde
-from utils import getConfigurationByID
+from scipy.stats import gaussian_kde
+from pairs import load_pairs, load_plot_conf, plot_dir
 from typing import Tuple, Optional, Dict, List
 import warnings
 warnings.filterwarnings('ignore')
@@ -62,7 +58,7 @@ def calculate_comprehensive_stats(model_data: np.ndarray,
         Dictionary containing all statistical metrics including:
         - Basic errors: bias, rmse, mae
         - Normalized errors: normalized_bias, normalized_rmse, normalized_mae
-        - Correlation metrics: correlation, r2, p_value
+        - Correlation metrics: correlation, r2 (squared correlation), p_value
         - Other metrics: scatter_index, skill_score, symmetric_slope
         - Data statistics: n_points, mean_obs, mean_model, std_obs, std_model
         
@@ -86,7 +82,7 @@ def calculate_comprehensive_stats(model_data: np.ndarray,
     
     # Correlation metrics
     corr = correlation(model_clean, sat_clean)
-    r2 = r2_score(sat_clean, model_clean)
+    r2 = corr ** 2
     
     # Statistical significance
     _, p_value = stats.pearsonr(model_clean, sat_clean)
@@ -242,7 +238,7 @@ def save_statistics_table(stats_data: list, title: str, save_path: str,
 def generate_percentile_scatter(model_data: np.ndarray, satellite_data: np.ndarray,
                                 percentile: int,
                                 model_name: str = "Model", sat_name: str = "Satellite",
-                                figsize: Tuple[int, int] = (14, 10), save_path: Optional[str] = None,
+                                figsize: Tuple[int, int] = (14, 7), save_path: Optional[str] = None,
                                 dpi: int = 300) -> plt.Figure:
     """
     Create scatter plot for data above a specific percentile threshold.
@@ -323,13 +319,11 @@ def generate_percentile_scatter(model_data: np.ndarray, satellite_data: np.ndarr
     stats_dict = calculate_comprehensive_stats(model_perc, sat_perc)
     
     # Set modern style
-    sns.set_palette(sns.color_palette("viridis"))
-    
     # Create figure WITHOUT table section (table will be separate)
     fig = plt.figure(figsize=figsize, facecolor='white')
-    gs = fig.add_gridspec(3, 3, height_ratios=[0.1, 2, 0.8], 
+    gs = fig.add_gridspec(2, 3, height_ratios=[0.1, 2], 
                          width_ratios=[2, 0.8, 0.8],
-                         hspace=0.3, wspace=0.4)
+                         hspace=0.3, wspace=0.55)
     
     # Title
     title_ax = fig.add_subplot(gs[0, :])
@@ -437,9 +431,7 @@ def generate_percentile_scatter(model_data: np.ndarray, satellite_data: np.ndarr
     ax_right.set_xlim(plot_min, plot_max)
     ax_right.set_ylim(0, max_density)  # Shared Y-axis scale (same as top)
     ax_right.set_title(f'{model_name}\\nDistribution', fontsize=10, fontweight='bold')
-    ax_right.set_ylabel('Density', fontsize=8)
-    ax_right.yaxis.set_label_position("right")
-    ax_right.yaxis.tick_right()
+    ax_right.tick_params(labelleft=False)
     ax_right.grid(True, alpha=0.3, linestyle='--')
     ax_right.tick_params(labelsize=8)
     
@@ -460,7 +452,7 @@ def generate_percentile_scatter(model_data: np.ndarray, satellite_data: np.ndarr
         ['', '', ''],
         ['--- Correlation Metrics ---', '', ''],
         ['Pearson ρ', f"{stats_dict['correlation']:.2f}", 'Correlation coefficient'],
-        ['R²', f"{stats_dict['r2']:.2f}", 'Coefficient of determination'],
+        ['R²', f"{stats_dict['r2']:.2f}", 'Squared correlation'],
         ['p-value', f"{stats_dict['p_value']:.3e}", 'Statistical significance'],
     ])
     
@@ -514,7 +506,7 @@ def generate_percentile_scatter(model_data: np.ndarray, satellite_data: np.ndarr
 
 def scatter_waves(model_data: np.ndarray, satellite_data: np.ndarray,
                  model_name: str = "Model", sat_name: str = "Satellite",
-                 figsize: Tuple[int, int] = (16, 10), save_path: Optional[str] = None,
+                 figsize: Tuple[int, int] = (18, 7), save_path: Optional[str] = None,
                  dpi: int = 300, percentile_thresholds: Optional[List[int]] = None,
                  include_qq_plot: bool = True,
                  generate_percentile_plots: bool = True) -> plt.Figure:
@@ -591,21 +583,19 @@ def scatter_waves(model_data: np.ndarray, satellite_data: np.ndarray,
     stats_dict = calculate_comprehensive_stats(model_clean, sat_clean)
     
     # Set modern style
-    sns.set_palette(sns.color_palette("viridis"))
-    
     # Create figure with enhanced layout
     n_cols = 4 if include_qq_plot else 3
     fig = plt.figure(figsize=figsize, facecolor='white')
     
     # Define grid layout WITHOUT table section (table will be saved separately)
     if include_qq_plot:
-        gs = fig.add_gridspec(3, 4, height_ratios=[0.1, 2, 0.8], 
+        gs = fig.add_gridspec(2, 4, height_ratios=[0.1, 2], 
                             width_ratios=[2, 0.8, 0.8, 1.2],
-                            hspace=0.3, wspace=0.4)
+                            hspace=0.3, wspace=0.55)
     else:
-        gs = fig.add_gridspec(3, 3, height_ratios=[0.1, 2, 0.8], 
+        gs = fig.add_gridspec(2, 3, height_ratios=[0.1, 2], 
                             width_ratios=[2, 0.8, 0.8],
-                            hspace=0.3, wspace=0.4)
+                            hspace=0.3, wspace=0.55)
     
     # Title
     title_ax = fig.add_subplot(gs[0, :])
@@ -707,9 +697,7 @@ def scatter_waves(model_data: np.ndarray, satellite_data: np.ndarray,
     ax_right.set_xlim(plot_min, plot_max)
     ax_right.set_ylim(0, max_density)  # Shared Y-axis scale (same as top)
     ax_right.set_title(f'{model_name}\nDistribution', fontsize=11, fontweight='bold')
-    ax_right.set_ylabel('Density', fontsize=9)
-    ax_right.yaxis.set_label_position("right")
-    ax_right.yaxis.tick_right()
+    ax_right.tick_params(labelleft=False)
     ax_right.grid(True, alpha=0.3, linestyle='--')
     ax_right.legend(fontsize=8)
     
@@ -728,7 +716,7 @@ def scatter_waves(model_data: np.ndarray, satellite_data: np.ndarray,
     stats_data.extend([
         ['N (observations)', f"{stats_dict['n_points']:,}", 'Number of valid data points'],
         ['Pearson ρ', f"{stats_dict['correlation']:.4f}", 'Correlation coefficient (-1 to 1)'],
-        ['R²', f"{stats_dict['r2']:.4f}", 'Coefficient of determination (0 to 1)'],
+        ['R²', f"{stats_dict['r2']:.4f}", 'Squared correlation (0 to 1)'],
         ['p-value', f"{stats_dict['p_value']:.4e}", 'Statistical significance of correlation'],
     ])
     
@@ -751,13 +739,12 @@ def scatter_waves(model_data: np.ndarray, satellite_data: np.ndarray,
         ['SI (%)', f"{stats_dict['scatter_index']:.2f}", 'Scatter Index'],
     ])
     
-    # # Advanced metrics
-    # stats_data.extend([
-    #     ['', '', ''],  # Separator
-    #     ['--- Advanced Metrics ---', '', ''],
-    #     ['Skill Score', f"{stats_dict['skill_score']:.4f}", 'Murphy skill score (>0 is good)'],
-    #     ['Symmetric Slope', f"{stats_dict['symmetric_slope']:.4f}", 'Best fit'],
-    # ])
+    stats_data.extend([
+        ['', '', ''],  # Separator
+        ['--- Advanced Metrics ---', '', ''],
+        ['Skill Score', f"{stats_dict['skill_score']:.4f}", 'Murphy skill score 1-MSE/var(obs) (>0 is good)'],
+        ['Symmetric Slope', f"{stats_dict['symmetric_slope']:.4f}", 'Mean of direct and inverse regression slopes'],
+    ])
     
     # Data statistics
     stats_data.extend([
@@ -898,8 +885,6 @@ def simple_scatter_plot(model_data: np.ndarray, satellite_data: np.ndarray,
     n_points = len(model_clean)
     
     # Set modern style
-    sns.set_palette(sns.color_palette("viridis"))
-    
     # Create figure
     fig, ax = plt.subplots(figsize=figsize, facecolor='white')
     
@@ -983,249 +968,138 @@ def simple_scatter_plot(model_data: np.ndarray, satellite_data: np.ndarray,
     return fig
 
 
-def maskNtimes(model: np.ndarray, sat: np.ndarray, times: float) -> np.ndarray:
+COLORS = ['#E74C3C', '#3498DB', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C', '#E67E22', '#34495E']
+MARKERS = ['s', '^', 'v', 'D', 'P', 'X', '<', '>', 'h', '*']
+
+
+def metrics_table(pairs) -> pd.DataFrame:
+    """Summary metrics for each model, overall and per satellite mission."""
+    rows = []
+    satellites = ['ALL'] + sorted(set(pairs.satellite.values) - {'ALL'})
+    for model in pairs.model.values:
+        mod = pairs.model_hs.sel(model=model).values
+        for sat in satellites:
+            sel = slice(None) if sat == 'ALL' else pairs.satellite.values == sat
+            rows.append({'model': model, 'satellite': sat, **summary(mod[sel], pairs.hs.values[sel])})
+    return pd.DataFrame(rows).set_index(['model', 'satellite'])
+
+
+def taylor_diagram(table: pd.DataFrame, save_path: str, title: str = '') -> None:
+    """Taylor diagram: normalised standard deviation vs correlation.
+
+    Large markers: each model on all pairs; small markers: per satellite mission.
     """
-    Create mask for outliers where difference exceeds threshold.
-    
-    This filter identifies data points where the absolute difference between
-    model and satellite exceeds a multiple of the model value. Useful for
-    removing physically unrealistic outliers.
-    
-    Parameters
-    ----------
-    model : np.ndarray
-        Model predictions
-    sat : np.ndarray
-        Satellite observations
-    times : float
-        Multiplier threshold (e.g., 3.0 means mask if |diff| > 3*model)
-        
-    Returns
-    -------
-    np.ndarray
-        Boolean mask (True = outlier to be removed)
-        
-    Examples
-    --------
-    >>> model = np.array([1.0, 2.0, 3.0])
-    >>> sat = np.array([1.1, 8.0, 2.9])
-    >>> mask = maskNtimes(model, sat, 2.0)
-    >>> print(mask)  # [False, True, False] - middle point is outlier
-    """
-    diff = np.abs(model - sat)
-    print(f'Max difference: {np.nanmax(diff):.3f} m')
-    print(f'Model * threshold: {np.nanmax(model * times):.3f} m')
-    print(f'Threshold value: {times}')
-    return diff > (model * times)
+    fig = plt.figure(figsize=(9, 8), facecolor='white')
+    ax = fig.add_subplot(111, projection='polar')
+    ax.set_thetamin(0)
+    ax.set_thetamax(90)
+    smax = max(1.6, np.nanmax(table['std_model'] / table['std_obs']) * 1.1)
+    ax.set_ylim(0, smax)
+    corr_ticks = np.array([0, 0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0])
+    ax.set_xticks(np.arccos(corr_ticks))
+    ax.set_xticklabels([f'{c:g}' for c in corr_ticks])
+    ax.text(np.pi / 4, smax * 1.12, 'Correlation', rotation=-45, ha='center', va='center', fontsize=11)
+    ax.set_ylabel('Normalised standard deviation', fontsize=11, labelpad=25)
+    theta = np.linspace(0, np.pi / 2, 200)
+    ax.plot(theta, np.ones_like(theta), 'k--', lw=1)
+    for r in (0.25, 0.5, 0.75, 1.0, 1.25):  # centred RMS difference isolines
+        x = 1 + r * np.cos(np.linspace(0, np.pi, 200))
+        y = r * np.sin(np.linspace(0, np.pi, 200))
+        rr, tt = np.hypot(x, y), np.arctan2(y, x)
+        keep = (tt <= np.pi / 2) & (rr <= smax)
+        ax.plot(tt[keep], rr[keep], color='gray', lw=0.6, alpha=0.6)
+    ax.plot(0, 1, 'k*', ms=15, label='Observations', clip_on=False)
+
+    satellites = [s for s in table.index.get_level_values('satellite').unique() if s != 'ALL']
+    for i, model in enumerate(table.index.get_level_values('model').unique()):
+        color = COLORS[i % len(COLORS)]
+        for j, sat in enumerate(satellites):
+            row = table.loc[(model, sat)]
+            if row['n'] > 10:
+                ax.plot(np.arccos(np.clip(row['correlation'], 0, 1)), row['std_model'] / row['std_obs'],
+                        MARKERS[j % len(MARKERS)], color=color, ms=7, alpha=0.6, mec='k', mew=0.4)
+        row = table.loc[(model, 'ALL')]
+        ax.plot(np.arccos(np.clip(row['correlation'], 0, 1)), row['std_model'] / row['std_obs'],
+                'o', color=color, ms=14, mec='k', label=model)
+    for j, sat in enumerate(satellites):
+        ax.plot([], [], MARKERS[j % len(MARKERS)], color='gray', ms=7, label=sat)
+    ax.legend(loc='upper right', bbox_to_anchor=(1.32, 1.05), fontsize=9)
+    ax.set_title(f'Taylor diagram {title}', fontsize=14, fontweight='bold', pad=20)
+    fig.savefig(save_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+
+
+def plot_binned_errors(pairs, save_path: str, bin_width: float = 0.5, title: str = '') -> pd.DataFrame:
+    """Bias and RMSE as a function of observed Hs (conditional on observations)."""
+    from stats import grouped_metrics
+    obs = pairs.hs.values
+    edges = np.arange(0, np.ceil(obs.max() / bin_width) * bin_width + bin_width, bin_width)
+    groups = np.clip(np.searchsorted(edges, obs, side='right') - 1, 0, len(edges) - 2)
+    centers = (edges[:-1] + edges[1:]) / 2
+    fig, (ax_b, ax_r, ax_n) = plt.subplots(3, 1, figsize=(10, 11), sharex=True,
+                                           gridspec_kw={'height_ratios': [2, 2, 1]})
+    rows = []
+    for i, model in enumerate(pairs.model.values):
+        res = grouped_metrics(pairs.model_hs.sel(model=model).values, obs, groups, len(centers), min_obs=5)
+        color = COLORS[i % len(COLORS)]
+        ax_b.plot(centers, res['bias'], 'o-', color=color, label=model)
+        ax_r.plot(centers, res['rmse'], 'o-', color=color, label=model)
+        rows.append(pd.DataFrame(res, index=pd.Index(centers, name='hs_bin_center')).assign(model=model))
+    ax_n.bar(centers, res['nobs'], width=bin_width * 0.9, color='gray')
+    ax_b.axhline(0, color='k', lw=1)
+    for ax, label in ((ax_b, 'Bias [m]'), (ax_r, 'RMSE [m]'), (ax_n, 'N pairs')):
+        ax.set_ylabel(label, fontsize=12)
+        ax.grid(True, linestyle='--', alpha=0.5)
+    ax_b.legend()
+    ax_n.set_xlabel('Observed Hs [m]', fontsize=12)
+    ax_b.set_title(f'Errors by observed Hs class {title}', fontsize=14, fontweight='bold')
+    fig.savefig(save_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return pd.concat(rows)
 
 
 def main(conf_path: str, start_date: str, end_date: str) -> None:
     """
-    Main validation workflow for wave model outputs.
-    
-    This function:
-    1. Loads configuration from YAML file
-    2. Reads model and satellite data
-    3. Applies quality filters (thresholds, ntimes filter)
-    4. Generates comprehensive validation plots with statistics
-    5. Optionally performs percentile-based validation
-    
-    Parameters
-    ----------
-    conf_path : str
-        Path to configuration YAML file
-    start_date : str
-        Start date for validation period (YYYYMMDD format)
-    end_date : str
-        End date for validation period (YYYYMMDD format)
-        
-    Notes
-    -----
-    Configuration file must contain 'plot' section with:
-    - experiments: dict of model experiments to validate
-    - out_dir: output directory for plots
-    - filters: quality control parameters (min, max, ntimes, unbias)
-    - title: plot title
-    
-    Optional configuration:
-    - percentile_thresholds: list of percentiles for extreme value analysis
-      Example: [75, 90, 95]
-    
-    Examples
-    --------
-    >>> main('conf.yaml', '20230901', '20230930')
+    Scatter plots, statistics tables, Taylor diagram and Hs-class errors for all
+    experiments, computed on the common filtered sample (see pairs.load_pairs).
     """
-    # Load configuration
-    conf = getConfigurationByID(conf_path, 'plot')
-    outdir = os.path.join(conf.out_dir.out_dir, 'plots')
-    os.makedirs(outdir, exist_ok=True)
+    conf = load_plot_conf(conf_path)
+    outdir = plot_dir(conf)
     date = f"{start_date}_{end_date}"
-    
-    print("="*80)
-    print(f"WAVE MODEL VALIDATION: {start_date} to {end_date}")
-    print("="*80)
-    
-    # Get percentile thresholds from configuration (if provided)
-    percentile_thresholds = getattr(conf.filters, 'percentile_thresholds', [90, 95])
-    dpi = 300  # Default DPI for high-quality output
-    
-    print(f"\nConfiguration:")
-    print(f"  Percentile thresholds: {percentile_thresholds}")
-    print(f"  Output DPI: {dpi}")
-    
-    # Data containers
-    ds = {}
-    
-    # Load and process each experiment
-    for i, dataset in enumerate(conf.experiments):
-        print(f"\nProcessing experiment: {dataset}")
-        
-        # Load dataset
-        ds_path = (conf.experiments[dataset].series).format(
-            out_dir=conf.out_dir.out_dir, date=date)
-        ds_all = xr.open_dataset(ds_path)
-        
-        print(f"  Dataset shape: {ds_all.dims}")
-        
-        # Extract variables
-        sat_hs = ds_all.hs
-        model_hs = ds_all.model_hs
-        
-        # Remove rows with any NaN in model
-        model_hs = model_hs.where(~np.any(np.isnan(model_hs), axis=1), np.nan)
-        
-        print(f"  Satellite NaN count: {np.sum(np.isnan(sat_hs))}")
-        print(f"  Satellite range: [{np.nanmin(sat_hs.values):.3f}, {np.nanmax(sat_hs.values):.3f}] m")
-        
-        # Apply threshold filters
-        sat_hs = sat_hs.where(
-            (ds_all.hs.values <= float(conf.filters.max)) & 
-            (ds_all.hs.values >= float(conf.filters.min)))
-        model_hs = model_hs.where(
-            (ds_all.model_hs.values <= float(conf.filters.max)) & 
-            (ds_all.model_hs.values >= float(conf.filters.min)))
-        
-        # Store data
-        ds['sat'] = sat_hs.values
-        ds[dataset] = model_hs.sel(model=dataset).values
-        
-        # Initialize validity mask on first iteration
-        if i == 0:
-            notValid = np.isnan(ds['sat'])
-        
-        print(f"  Data pairs: {len(ds['sat'])}")
-        
-        # Update validity mask
-        notValid = notValid | np.isnan(ds[dataset])
-        
-        print(f"  Valid pairs after NaN filter: {np.sum(~notValid)}")
-        
-        # Apply ntimes filter if configured
-        if hasattr(conf.filters, 'ntimes') and conf.filters.ntimes:
-            print(f"  Applying ntimes filter (threshold: {conf.filters.ntimes})")
-            ntimes = maskNtimes(ds[dataset], ds['sat'], float(conf.filters.ntimes))
-            notValid = notValid | ntimes
-            print(f"  Valid pairs after ntimes filter: {np.sum(~notValid)}")
-    
-    # Extract valid data for plotting
-    sat2plot = ds['sat'][np.argwhere(~notValid)[:, 0]]
-    
-    print(f"\n{'='*80}")
-    print(f"GENERATING VALIDATION PLOTS")
-    print(f"{'='*80}")
-    
-    # Generate plots for each experiment
-    for i, dataset in enumerate(conf.experiments):
+    title = conf.title.format(start_date=start_date, end_date=end_date)
+    percentile_thresholds = conf.filters.get('percentile_thresholds') or []
+    dpi = int(conf.get('dpi', 300))
+
+    pairs = load_pairs(conf, start_date, end_date)
+    sat2plot = pairs.hs.values
+
+    for dataset in pairs.model.values:
         print(f"\nExperiment: {dataset}")
-        
+        mod2plot = pairs.model_hs.sel(model=dataset).values
         outName = os.path.join(outdir, f'scatter_{dataset}_{date}.jpeg')
-        mod2plot = ds[dataset][np.argwhere(~notValid)[:, 0]]
-        
-        # Apply unbiasing if configured (only on first iteration)
-        if hasattr(conf.filters, 'unbias') and \
-           (conf.filters.unbias in ['True', 'T', 'TRUE', 't']) and (i == 0):
-            print("  Applying unbias correction")
-            sat2plot -= np.nanmean(sat2plot)
-            sat2plot += np.nanmean(mod2plot)
-        
-        # Generate comprehensive scatter plot
-        try:
-            fig = scatter_waves(
-                mod2plot, sat2plot,
-                model_name=f"{dataset}",
-                sat_name="Satellite",
-                save_path=outName,
-                percentile_thresholds=percentile_thresholds,
-                include_qq_plot=True,
-                generate_percentile_plots=True)
-            plt.close(fig)
-            print(f"  ✓ Generated: {os.path.basename(outName)}")
-            
-            # Generate simple scatter plot (scatter only, no tables/distributions)
-            print(f"  Generating simple scatter plot...")
+        fig = scatter_waves(mod2plot, sat2plot, model_name=dataset, sat_name="Satellite",
+                            save_path=outName, dpi=dpi, percentile_thresholds=percentile_thresholds,
+                            include_qq_plot=True)
+        plt.close(fig)
+        fig = simple_scatter_plot(mod2plot, sat2plot, model_name=dataset, sat_name="Satellite",
+                                  save_path=outName.replace(f'scatter_{dataset}', f'scatter_{dataset}_simple'),
+                                  dpi=dpi)
+        plt.close(fig)
+        for perc in percentile_thresholds:
             try:
-                simple_outName = outName.replace(f'scatter_{dataset}', f'scatter_{dataset}_simple')
-                fig_simple = simple_scatter_plot(
-                    mod2plot, sat2plot,
-                    model_name=f"{dataset}",
-                    sat_name="Satellite",
-                    save_path=simple_outName,
-                    dpi=dpi)
-                plt.close(fig_simple)
-                print(f"  ✓ Generated simple scatter plot")
-            except Exception as e_simple:
-                print(f"  ✗ Error generating simple plot: {e_simple}")
-            
-            # Generate separate scatter plots for percentile thresholds
-            if percentile_thresholds and len(percentile_thresholds) > 0:
-                for perc in percentile_thresholds:
-                    print(f"  Generating P{perc} scatter plot...")
-                    try:
-                        fig_perc = generate_percentile_scatter(
-                            mod2plot, sat2plot,
-                            percentile=perc,
-                            model_name=f"{dataset}",
-                            sat_name="Satellite",
-                            save_path=outName.replace(f'scatter_{dataset}', f'scatter_{dataset}_P{perc}'),
-                            dpi=dpi)
-                        plt.close(fig_perc)
-                        print(f"    ✓ Generated P{perc} scatter plot")
-                    except Exception as e_perc:
-                        print(f"    ✗ Error generating P{perc} plot: {e_perc}")
-                        
-        except Exception as e:
-            print(f"  ✗ Error generating plot: {e}")
-            continue
-    
-    print(f"\n{'='*80}")
-    print("VALIDATION COMPLETE")
-    print(f"Output directory: {outdir}")
-    print(f"{'='*80}\n")
+                fig = generate_percentile_scatter(
+                    mod2plot, sat2plot, percentile=perc, model_name=dataset, sat_name="Satellite",
+                    save_path=outName.replace(f'scatter_{dataset}', f'scatter_{dataset}_P{perc}'), dpi=dpi)
+                plt.close(fig)
+            except ValueError as e:
+                print(f"  P{perc} scatter skipped: {e}")
 
-
-if __name__ == "__main__":
-    import sys
-    import argparse
-    
-    parser = argparse.ArgumentParser(
-        description='Wave Model Validation - Scatter Plot Analysis',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python validation.py -c conf.yaml
-  
-For more information, see README.md
-        """)
-    
-    parser.add_argument('-c', '--config', required=True,
-                       help='Path to configuration YAML file')
-    parser.add_argument('--start-date', 
-                       help='Start date (YYYYMMDD) - overrides config')
-    parser.add_argument('--end-date',
-                       help='End date (YYYYMMDD) - overrides config')
-    
-    args = parser.parse_args()
-    
-    # For now, this requires dates to be passed from main.py
-    # This is just for standalone usage documentation
-    print("Note: This script is typically called from main.py")
+    table = metrics_table(pairs)
+    table.to_csv(os.path.join(outdir, f'metrics_{date}.csv'), float_format='%.4f')
+    print('\n' + table[['n', 'bias', 'rmse', 'nbias', 'si', 'correlation']].round(3).to_string())
+    taylor_diagram(table, os.path.join(outdir, f'taylor_{date}.jpeg'), title)
+    plot_binned_errors(pairs, os.path.join(outdir, f'errors_by_hs_{date}.jpeg'), title=title).to_csv(
+        os.path.join(outdir, f'errors_by_hs_{date}.csv'), float_format='%.4f')
+    if 'unbiased' in pairs.attrs:
+        print(pairs.attrs['unbiased'])
+    print(f"\nOutput directory: {outdir}")
